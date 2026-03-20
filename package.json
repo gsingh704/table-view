@@ -4,7 +4,7 @@
   "description": "View 2D arrays in Table format",
   "version": "0.0.1",
   "engines": {
-    "vscode": "^1.110.0"
+    "vscode": "^1.107.0"
   },
   "categories": [
     "Other"
@@ -16,8 +16,40 @@
       {
         "command": "table-view.helloWorld",
         "title": "Hello World"
+      },
+      {
+        "command": "table-view.viewAsTable",
+        "title": "View as Table",
+        "icon": "$(table)"
       }
-    ]
+    ],
+    "menus": {
+      "debug/variables/context": [
+        {
+          "command": "table-view.viewAsTable",
+          "group": "inline"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "panel": [
+        {
+          "id": "tableView-panel",
+          "title": "Table View",
+          "icon": "$(table)"
+        }
+      ]
+    },
+    "views": {
+      "tableView-panel": [
+        {
+          "type": "webview",
+          "id": "tableView.bottomView",
+          "name": "Data Table",
+          "icon": "$(table)"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
@@ -28,7 +60,7 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.110.0",
+    "@types/vscode": "^1.107.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
     "typescript-eslint": "^8.56.1",
