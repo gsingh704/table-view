@@ -26,14 +26,24 @@
         "command": "tableView.clearVariables",
         "title": "Clear All",
         "icon": "$(trash)"
+      },
+      {
+        "command": "tableView.openSettings",
+        "title": "Open Settings",
+        "icon": "$(settings-gear)"
       }
     ],
     "menus": {
       "view/title": [
         {
+          "command": "tableView.openSettings",
+          "when": "view == tableView.variablesView",
+          "group": "navigation@1"
+        },
+        {
           "command": "tableView.clearVariables",
           "when": "view == tableView.variablesView",
-          "group": "navigation"
+          "group": "navigation@2"
         }
       ],
       "debug/variables/context": [
@@ -43,30 +53,26 @@
         }
       ]
     },
-    "viewsContainers": {
-      "panel": [
-        {
-          "id": "tableView-panel",
-          "title": "Table View",
-          "icon": "$(table)"
-        }
-      ]
-    },
     "views": {
-      "tableView-panel": [
+      "debug": [
         {
           "type": "webview",
           "id": "tableView.variablesView",
           "name": "Variables",
-          "icon": "$(eye)"
-        },
-        {
-          "type": "webview",
-          "id": "tableView.bottomView",
-          "name": "Data Table",
-          "icon": "$(table)"
+          "icon": "$(eye)",
+          "weight": 100
         }
       ]
+    },
+    "configuration": {
+      "title": "Table View",
+      "properties": {
+        "tableView.startIndexAt1": {
+          "type": "boolean",
+          "default": false,
+          "description": "Start array indexes counting at 1 instead of 0 (e.g. for ABAP debugging)"
+        }
+      }
     }
   },
   "scripts": {

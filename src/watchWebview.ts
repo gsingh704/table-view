@@ -1,5 +1,5 @@
 export function getWatchWebviewContent(): string {
-  return `<!DOCTYPE html>
+    return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -35,9 +35,9 @@ export function getWatchWebviewContent(): string {
     <table id="watchTable">
         <thead>
             <tr>
-                <th id="th-var" style="width: 50%;">Variable<div class="resizer" id="var-resizer"></div></th>
+                <th id="th-var" style="width: 25%;">Variable<div class="resizer" id="var-resizer"></div></th>
                 <th>Value</th>
-                <th style="width: 24px;"></th>
+                <th style="width: 48px;"></th>
             </tr>
         </thead>
         <tbody id="watchBody">
@@ -168,6 +168,19 @@ export function getWatchWebviewContent(): string {
 
                 const tdActions = document.createElement('td');
                 tdActions.style.padding = '2px';
+                tdActions.style.display = 'flex';
+                tdActions.style.justifyContent = 'space-around';
+                tdActions.style.alignItems = 'center';
+
+                if (item.isComplex) {
+                    const btnTable = document.createElement('span');
+                    btnTable.title = 'Show as Table';
+                    btnTable.className = 'btn-remove'; // reuse style
+                    btnTable.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M14 3H2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1zM2 4h3v2H2V4zm4 0h3v2H6V4zm4 0h4v2h-4V4zM2 7h3v2H2V7zm4 0h3v2H6V7zm4 0h4v2h-4V7zM2 10h3v2H2v-2zm4 0h3v2H6v-2zm4 0h4v2h-4v-2z"/></svg>';
+                    btnTable.onclick = () => vscode.postMessage({ command: 'viewAsTable', expression: item.expression });
+                    tdActions.appendChild(btnTable);
+                }
+
                 const btnX = document.createElement('span');
                 btnX.title = 'Remove Variable';
                 btnX.className = 'btn-remove';

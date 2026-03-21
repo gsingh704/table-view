@@ -14,25 +14,32 @@ async function fetchVariables(session: vscode.DebugSession, ref: number): Promis
 	}
 }
 
-class TableViewProvider implements vscode.WebviewViewProvider {
+class TableViewProvider {
 	public static readonly viewType = 'tableView.bottomView';
-	private _view?: vscode.WebviewView;
+	private _panel?: vscode.WebviewPanel;
 	private _pendingData?: { data: any[], columns: string[], variableName: string };
 	private _currentSession?: vscode.DebugSession;
 	private _currentRef?: number;
 	private _currentName?: string;
 	private _currentRootEvalName?: string;
 
-	resolveWebviewView(
-		webviewView: vscode.WebviewView,
-		context: vscode.WebviewViewResolveContext,
-		_token: vscode.CancellationToken
-	) {
-		this._view = webviewView;
-		webviewView.webview.options = { enableScripts: true };
-		webviewView.webview.html = getWebviewContent();
+	public show() {
+		if (this._panel) {
+			this._panel.reveal(vscode.ViewColumn.Active);
+		} else {
+			this._panel = vscode.window.createWebviewPanel(
+				'tableViewEditor',
+				`Table: ${this._currentName || 'Data'}`,
+				vscode.ViewColumn.Active,
+				{ enableScripts: true, retainContextWhenHidden: true }
+			);
 
-		webviewView.webview.onDidReceiveMessage(message => this.handleMessage(message));
+			this._panel.webview.html = getWebviewContent();
+			this._panel.webview.onDidReceiveMessage(message => this.handleMessage(message));
+			this._panel.onDidDispose(() => {
+				this._panel = undefined;
+			});
+		}
 
 		if (this._pendingData) {
 			this.update(
@@ -48,9 +55,7 @@ class TableViewProvider implements vscode.WebviewViewProvider {
 	}
 
 	private async handleMessage(message: any) {
-		if (message.command === 'openInEditor') {
-			this.openInEditor(message.data, message.columns, message.variableName);
-		} else if (message.command === 'updateVariable') {
+		if (message.command === 'updateVariable') {
 			await this.updateVariable(message.ref, message.name, message.value, message.evalName);
 		} else if (message.command === 'deleteRows') {
 			await this.deleteRows(message.indices);
@@ -73,9 +78,9 @@ class TableViewProvider implements vscode.WebviewViewProvider {
 		this._currentName = variableName;
 		this._currentRootEvalName = rootEvalName;
 
-		if (this._view) {
-			this._view.show?.(true);
-			this._view.webview.postMessage({ type: 'update', data, columns, variableName, isEditorPanel: false });
+		if (this._panel) {
+			this._panel.title = `Table: ${variableName}`;
+			this._panel.webview.postMessage({ type: 'update', data, columns, variableName, isEditorPanel: true });
 		} else {
 			this._pendingData = { data, columns, variableName };
 		}
@@ -193,24 +198,10 @@ class TableViewProvider implements vscode.WebviewViewProvider {
 			cancellable: false
 		}, async () => {
 			const { tableData, allColumns } = await extractTableData(this._currentSession!, this._currentRef!);
-			if (this._view) {
-				this._view.webview.postMessage({ type: 'update', data: tableData, columns: Array.from(allColumns), variableName: this._currentName, isEditorPanel: false });
+			if (this._panel) {
+				this._panel.webview.postMessage({ type: 'update', data: tableData, columns: Array.from(allColumns), variableName: this._currentName, isEditorPanel: true });
 			}
-			// Update the editor panels if any (we don't track them right now, but could)
 		});
-	}
-
-	private openInEditor(data: any[], columns: string[], variableName: string) {
-		const panel = vscode.window.createWebviewPanel(
-			'tableViewEditor',
-			`Table: ${variableName}`,
-			vscode.ViewColumn.Beside,
-			{ enableScripts: true }
-		);
-
-		panel.webview.html = getWebviewContent();
-		panel.webview.onDidReceiveMessage(message => this.handleMessage(message));
-		panel.webview.postMessage({ type: 'update', data, columns, variableName, isEditorPanel: true });
 	}
 }
 
@@ -250,8 +241,8 @@ async function evaluateAndShowTable(session: vscode.DebugSession, expression: st
 				cancellable: false
 			}, async () => {
 				const { tableData, allColumns } = await extractTableData(session, response.variablesReference);
-				await vscode.commands.executeCommand(`${TableViewProvider.viewType}.focus`);
 				provider.update(tableData, Array.from(allColumns), expression, session, response.variablesReference, response.evaluateName || expression);
+				provider.show();
 			});
 		}
 	} catch (e) {
@@ -322,9 +313,6 @@ export function activate(context: vscode.ExtensionContext) {
 	console.log('Congratulations, your extension "table-view" is now active!');
 
 	const provider = new TableViewProvider();
-	context.subscriptions.push(
-		vscode.window.registerWebviewViewProvider(TableViewProvider.viewType, provider)
-	);
 
 	const watchProvider = new WatchProvider();
 	context.subscriptions.push(
@@ -334,17 +322,22 @@ export function activate(context: vscode.ExtensionContext) {
 	const disposableClearVariables = vscode.commands.registerCommand('tableView.clearVariables', () => {
 		watchProvider.clearVariables();
 	});
-	context.subscriptions.push(disposableClearVariables);
+
+	const disposableOpenSettings = vscode.commands.registerCommand('tableView.openSettings', () => {
+		vscode.commands.executeCommand('workbench.action.openSettings', 'tableView');
+	});
+
+	context.subscriptions.push(disposableClearVariables, disposableOpenSettings);
 
 	let lastClickTime = 0;
 	let lastClickPosition: vscode.Position | undefined;
 
 	context.subscriptions.push(
 		vscode.window.onDidChangeTextEditorSelection(async (e) => {
-			if (e.kind !== vscode.TextEditorSelectionChangeKind.Mouse) return;
+			if (e.kind !== vscode.TextEditorSelectionChangeKind.Mouse) { return; }
 
 			const session = vscode.debug.activeDebugSession;
-			if (!session) return;
+			if (!session) { return; }
 
 			const selection = e.selections[0];
 			const now = Date.now();
@@ -359,7 +352,7 @@ export function activate(context: vscode.ExtensionContext) {
 			// If it's a non-empty selection right after a click, it implies a double click or rapid drag.
 			if (now - lastClickTime < 500 && lastClickPosition && selection.contains(lastClickPosition)) {
 				lastClickTime = 0; // Prevent re-triggering for subsequent drag events
-				if (!selection.isSingleLine) return;
+				if (!selection.isSingleLine) { return; }
 
 				const wordRangeActive = e.textEditor.document.getWordRangeAtPosition(selection.active);
 				const wordRangeAnchor = e.textEditor.document.getWordRangeAtPosition(selection.anchor);
@@ -422,8 +415,8 @@ export function activate(context: vscode.ExtensionContext) {
 			cancellable: false
 		}, async (progress) => {
 			const { tableData, allColumns } = await extractTableData(session, ref);
-			await vscode.commands.executeCommand(`${TableViewProvider.viewType}.focus`);
 			provider.update(tableData, Array.from(allColumns), name, session, ref, rootEvalName);
+			provider.show();
 		});
 	});
 
