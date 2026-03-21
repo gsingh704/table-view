@@ -1,71 +1,33 @@
 # table-view README
 
-This is the README for your extension "table-view". After writing up a brief description, we recommend including the following sections.
 
-## Features
+**Table View** enhances your debugging experience in VS Code by allowing you to inspect 2D arrays and objects in a rich, interactive table and chart interface. 
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+### 📊 Interactive Data Table
+Right-click any complex variable (Array or Object) in the Debug Variables panel and select **"View as Table"**, or hover/select a variable in your code. The extension extracts the data and presents it in a dedicated webview panel containing:
 
-For example if there is an image subfolder under your extension project workspace:
+- **Sorting & Filtering**: Sort columns ascending/descending and filter data on the fly.
+- **Pagination**: Handle large arrays easily with built-in pagination.
+- **Column Visibility**: Toggle specific columns on or off, or use "Select All" for quick resets.
+- **Resizable Columns**: Drag column headers to adjust their width.
+- **Inline Editing**: Double-click any cell to edit its value directly. Changes are pushed back to the active debug session!
+- **Data Manipulation**: Select and delete rows, insert empty rows at specific indexes, or append new rows to the current array/object.
+- **Export Data**: Export the current table view to **CSV** or **JSON** for external analysis.
+- **Instant Chart View**: Toggle the "View Chart" button to instantly visualize your numerical data in a bar chart without leaving the editor.
 
-\!\[feature X\]\(images/feature-x.png\)
-
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+### 👀 Custom Variables Watch
+The extension introduces a custom **Variables** view in the Debug panel:
+- Quickly add variables by selecting text in your active editor.
+- Rename, update, and remove tracked variables effortlessly.
+- Instantly open complex objects into the full Table View directly from the watch panel by clicking the table icon next to the variable.
 
 ## Requirements
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+- VS Code version 1.107.0 or higher.
+- An active debug session is required to evaluate variables and launch the table view.
 
 ## Extension Settings
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+This extension contributes the following configuration settings:
 
-For example:
-
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
-
-## Known Issues
-
-Calling out known issues can help limit users opening duplicate issues against your extension.
-
-## Release Notes
-
-Users appreciate release notes as you update your extension.
-
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
-
----
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+* `tableView.startIndexAt1`: Set to `true` to start array indexes counting at 1 instead of 0 (useful for ABAP or Lua debugging). Default is `false`.
