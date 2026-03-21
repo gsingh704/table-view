@@ -21,9 +21,21 @@
         "command": "table-view.viewAsTable",
         "title": "View as Table",
         "icon": "$(table)"
+      },
+      {
+        "command": "tableView.clearVariables",
+        "title": "Clear All",
+        "icon": "$(trash)"
       }
     ],
     "menus": {
+      "view/title": [
+        {
+          "command": "tableView.clearVariables",
+          "when": "view == tableView.variablesView",
+          "group": "navigation"
+        }
+      ],
       "debug/variables/context": [
         {
           "command": "table-view.viewAsTable",
@@ -42,6 +54,12 @@
     },
     "views": {
       "tableView-panel": [
+        {
+          "type": "webview",
+          "id": "tableView.variablesView",
+          "name": "Variables",
+          "icon": "$(eye)"
+        },
         {
           "type": "webview",
           "id": "tableView.bottomView",

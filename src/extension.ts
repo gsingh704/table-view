@@ -2,6 +2,7 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 import { getWebviewContent } from './tableWebview';
+import { WatchProvider } from './watchProvider';
 
 async function fetchVariables(session: vscode.DebugSession, ref: number): Promise<any[]> {
 	try {
@@ -35,8 +36,8 @@ class TableViewProvider implements vscode.WebviewViewProvider {
 
 		if (this._pendingData) {
 			this.update(
-				this._pendingData.data, 
-				this._pendingData.columns, 
+				this._pendingData.data,
+				this._pendingData.columns,
 				this._pendingData.variableName,
 				this._currentSession,
 				this._currentRef,
@@ -85,16 +86,26 @@ class TableViewProvider implements vscode.WebviewViewProvider {
 			try {
 				await this._currentSession.customRequest('setVariable', { variablesReference: ref, name, value });
 			} catch (e) {
-				if (evalName) {
-					const expr = `${evalName}[${JSON.stringify(name)}] = ${value}`;
-					try {
-						await this.evaluateExpression(expr);
-						await this.refresh();
-					} catch (e2) {
+				try {
+					await this._currentSession.customRequest('setVariable', { variablesReference: ref, name, value: JSON.stringify(value) });
+				} catch (e2) {
+					if (evalName) {
+						const expr = `${evalName}[${JSON.stringify(name)}] = ${value}`;
+						try {
+							await this.evaluateExpression(expr);
+							await this.refresh();
+						} catch (e3) {
+							const strExpr = `${evalName}[${JSON.stringify(name)}] = ${JSON.stringify(value)}`;
+							try {
+								await this.evaluateExpression(strExpr);
+								await this.refresh();
+							} catch (e4) {
+								vscode.window.showErrorMessage('Failed to update variable: ' + (e4 as Error).message);
+							}
+						}
+					} else {
 						vscode.window.showErrorMessage('Failed to update variable: ' + (e2 as Error).message);
 					}
-				} else {
-					vscode.window.showErrorMessage('Failed to update variable: ' + (e as Error).message);
 				}
 			}
 		}
@@ -103,7 +114,7 @@ class TableViewProvider implements vscode.WebviewViewProvider {
 
 
 	private async evaluateExpression(expr: string) {
-		if (!this._currentSession) return;
+		if (!this._currentSession) { return; }
 		const frameId = await getActiveFrameId(this._currentSession);
 		const args: any = { expression: expr, context: 'repl' };
 		if (frameId !== undefined) {
@@ -113,9 +124,19 @@ class TableViewProvider implements vscode.WebviewViewProvider {
 	}
 
 	private async deleteRows(indices: string[]) {
-		if (!this._currentSession || !this._currentRootEvalName || indices.length === 0) return;
+		if (!this._currentSession || !this._currentRootEvalName || indices.length === 0) { return; }
 		try {
-			const indicesStr = JSON.stringify(indices);
+			const config = vscode.workspace.getConfiguration('tableView');
+			const startIndexAt1 = config.get<boolean>('startIndexAt1', false);
+			const startIndexOffset = startIndexAt1 ? 1 : 0;
+			const realIndices = indices.map(idx => {
+				const num = Number(idx);
+				if (startIndexOffset !== 0 && !isNaN(num)) {
+					return String(num - startIndexOffset);
+				}
+				return idx;
+			});
+			const indicesStr = JSON.stringify(realIndices);
 			const expr = `
 				(function() {
 					let ids = ${indicesStr};
@@ -134,7 +155,7 @@ class TableViewProvider implements vscode.WebviewViewProvider {
 	}
 
 	private async appendRow() {
-		if (!this._currentSession || !this._currentRootEvalName) return;
+		if (!this._currentSession || !this._currentRootEvalName) { return; }
 		try {
 			const expr = `
 				Array.isArray(${this._currentRootEvalName}) ? 
@@ -149,7 +170,7 @@ class TableViewProvider implements vscode.WebviewViewProvider {
 	}
 
 	private async insertRow(indexOrKey: string) {
-		if (!this._currentSession || !this._currentRootEvalName) return;
+		if (!this._currentSession || !this._currentRootEvalName) { return; }
 		try {
 			const sanitizedInput = JSON.stringify(indexOrKey);
 			const expr = `
@@ -165,7 +186,7 @@ class TableViewProvider implements vscode.WebviewViewProvider {
 	}
 
 	public async refresh() {
-		if (!this._currentSession || !this._currentRef || !this._currentName) return;
+		if (!this._currentSession || !this._currentRef || !this._currentName) { return; }
 		vscode.window.withProgress({
 			location: vscode.ProgressLocation.Notification,
 			title: `Refreshing table data for ${this._currentName}...`,
@@ -193,7 +214,7 @@ class TableViewProvider implements vscode.WebviewViewProvider {
 	}
 }
 
-async function getActiveFrameId(session: vscode.DebugSession): Promise<number | undefined> {
+export async function getActiveFrameId(session: vscode.DebugSession): Promise<number | undefined> {
 	try {
 		const threadsResponse = await session.customRequest('threads');
 		if (threadsResponse && threadsResponse.threads) {
@@ -238,7 +259,7 @@ async function evaluateAndShowTable(session: vscode.DebugSession, expression: st
 	}
 }
 
-async function extractTableData(session: vscode.DebugSession, ref: number): Promise<{tableData: any[], allColumns: Set<string>}> {
+async function extractTableData(session: vscode.DebugSession, ref: number): Promise<{ tableData: any[], allColumns: Set<string> }> {
 	const rows = await fetchVariables(session, ref);
 	const tableData: any[] = [];
 	const allColumns = new Set<string>();
@@ -247,28 +268,46 @@ async function extractTableData(session: vscode.DebugSession, ref: number): Prom
 	const isSystemMetadata = (name: string) => name === 'length' || name === '__proto__' || name === '[[Prototype]]';
 	const isFunction = (v: any) => v.type === 'function' || (typeof v.value === 'string' && (v.value.startsWith('function') || v.value.startsWith('f ')));
 
+	const stripQuotes = (val: string) => {
+		if (typeof val === 'string' && val.length >= 2) {
+			if ((val.startsWith("'") && val.endsWith("'")) || (val.startsWith('"') && val.endsWith('"'))) {
+				return val.slice(1, -1);
+			}
+		}
+		return val;
+	};
+
+	const config = vscode.workspace.getConfiguration('tableView');
+	const startIndexAt1 = config.get<boolean>('startIndexAt1', false);
+	const startIndexOffset = startIndexAt1 ? 1 : 0;
+
 	for (const row of rows) {
 		if (isSystemMetadata(row.name) || isFunction(row)) { continue; }
 
+		let displayIndex = row.name;
+		if (startIndexOffset !== 0 && !isNaN(Number(row.name))) {
+			displayIndex = (Number(row.name) + startIndexOffset).toString();
+		}
+
 		if (row.variablesReference > 0) {
 			const cells = await fetchVariables(session, row.variablesReference);
-			const rowData: any = { 
-				'(index)': row.name,
+			const rowData: any = {
+				'(index)': displayIndex,
 				'_row_ref': row.variablesReference,
 				'_row_eval': row.evaluateName
 			};
 			for (const cell of cells) {
 				if (isSystemMetadata(cell.name) || isFunction(cell)) { continue; }
-				rowData[cell.name] = cell.value;
+				rowData[cell.name] = stripQuotes(cell.value);
 				rowData[`_ref_${cell.name}`] = row.variablesReference;
 				rowData[`_name_${cell.name}`] = cell.name;
 				allColumns.add(cell.name);
 			}
 			tableData.push(rowData);
 		} else {
-			tableData.push({ 
-				'(index)': row.name, 
-				value: row.value,
+			tableData.push({
+				'(index)': displayIndex,
+				value: stripQuotes(row.value),
 				'_ref_value': ref,
 				'_name_value': row.name
 			});
@@ -286,6 +325,16 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.window.registerWebviewViewProvider(TableViewProvider.viewType, provider)
 	);
+
+	const watchProvider = new WatchProvider();
+	context.subscriptions.push(
+		vscode.window.registerWebviewViewProvider(WatchProvider.viewType, watchProvider)
+	);
+
+	const disposableClearVariables = vscode.commands.registerCommand('tableView.clearVariables', () => {
+		watchProvider.clearVariables();
+	});
+	context.subscriptions.push(disposableClearVariables);
 
 	let lastClickTime = 0;
 	let lastClickPosition: vscode.Position | undefined;
@@ -316,12 +365,13 @@ export function activate(context: vscode.ExtensionContext) {
 				const wordRangeAnchor = e.textEditor.document.getWordRangeAtPosition(selection.anchor);
 
 				// To be a double click, the selection should typically match the word range.
-				if ((wordRangeActive && wordRangeActive.isEqual(selection)) || 
+				if ((wordRangeActive && wordRangeActive.isEqual(selection)) ||
 					(wordRangeAnchor && wordRangeAnchor.isEqual(selection))) {
-					
+
 					const text = e.textEditor.document.getText(selection).trim();
 					if (text) {
-						await evaluateAndShowTable(session, text, provider);
+						watchProvider.addVariable(text);
+						vscode.commands.executeCommand(`${WatchProvider.viewType}.focus`);
 					}
 				}
 			}
@@ -333,6 +383,23 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 
 	const disposableTableView = vscode.commands.registerCommand('table-view.viewAsTable', async (contextVariable) => {
+		const session = vscode.debug.activeDebugSession;
+		if (!session) {
+			vscode.window.showErrorMessage('No active debug session found.');
+			return;
+		}
+
+		if (typeof contextVariable === 'string') {
+			vscode.window.withProgress({
+				location: vscode.ProgressLocation.Notification,
+				title: `Extracting table data for ${contextVariable}...`,
+				cancellable: false
+			}, async () => {
+				await evaluateAndShowTable(session, contextVariable, provider);
+			});
+			return;
+		}
+
 		const keys = contextVariable ? Object.keys(contextVariable).join(', ') : 'null';
 		const variable = contextVariable?.variable || contextVariable;
 		const ref = variable?.variablesReference ?? variable?.variableReference ?? contextVariable?.variableReference;
@@ -341,12 +408,6 @@ export function activate(context: vscode.ExtensionContext) {
 
 		if (typeof ref !== 'number') {
 			vscode.window.showErrorMessage('Invalid variable for Table View. Available properties: ' + keys + '. Extracted variable: ' + JSON.stringify(variable));
-			return;
-		}
-
-		const session = vscode.debug.activeDebugSession;
-		if (!session) {
-			vscode.window.showErrorMessage('No active debug session found.');
 			return;
 		}
 
@@ -370,4 +431,4 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 // This method is called when your extension is deactivated
-export function deactivate() {}
+export function deactivate() { }

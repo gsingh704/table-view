@@ -299,7 +299,7 @@ export function getWebviewContent(): string {
                 vscode.postMessage({
                     command: 'openInEditor',
                     data: rawData,
-                    columns: message.columns, // Wait, message is undefined here. Use rawColumns if needed, but the extension will rebuild. 
+                    columns: ['(index)', ...allColumns],
                     variableName: currentVariableName
                 });
             });
