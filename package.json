@@ -3,12 +3,24 @@
   "displayName": "Table View",
   "description": "View 2D arrays in Table format",
   "version": "0.0.1",
+  "publisher": "gurjantsingh",
+  "license": "MIT",
   "engines": {
     "vscode": "^1.107.0"
   },
   "categories": [
     "Other"
   ],
+  "author": {
+    "name": "Gurjant Singh",
+    "email": "gurjant.dev@gmail.com",
+    "url": "https://www.gurjant.fyi"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gsingh704/table-view"
+  },
+  "icon": "img/icon.png",
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
@@ -81,7 +93,8 @@
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "package": "vsce package"
   },
   "devDependencies": {
     "@types/vscode": "^1.107.0",
@@ -91,6 +104,7 @@
     "eslint": "^9.39.3",
     "typescript": "^5.9.3",
     "@vscode/test-cli": "^0.0.12",
-    "@vscode/test-electron": "^2.5.2"
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.0.0"
   }
 }
