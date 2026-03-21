@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import { getWatchWebviewContent } from './watchWebview';
-import { getActiveFrameId } from './extension';
+import { getWatchWebviewContent } from '../webview/watchWebview';
+import { getActiveFrameId } from '../core/debugAdapter';
 
 interface WatchItem {
 	expression: string;

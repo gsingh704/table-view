@@ -1,59 +1,4 @@
-export function getWatchWebviewContent(): string {
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Variables</title>
-    <style>
-        body { font-family: var(--vscode-font-family); padding: 10px; color: var(--vscode-editor-foreground); }
-        table { border-collapse: collapse; width: 100%; border: 1px solid var(--vscode-panel-border); table-layout: fixed; }
-        th, td { border: 1px solid var(--vscode-panel-border); padding: 5px; text-align: left; position: relative; }
-        th { background: var(--vscode-editor-background); position: sticky; top: 0; }
-        input.edit-var { background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); width: 100%; box-sizing: border-box; }
-        input.add-var { background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); width: 100%; box-sizing: border-box; }
-        button { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 2px 6px; cursor: pointer; }
-        button:hover { background: var(--vscode-button-hoverBackground); }
-		.btn-action { cursor: pointer; color: var(--vscode-icon-foreground, #888); display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 3px; }
-        .btn-action:hover { background-color: var(--vscode-toolbar-hoverBackground, rgba(90, 93, 94, 0.31)); color: var(--vscode-foreground); }
-        .btn-action.danger:hover { color: var(--vscode-errorForeground); }
-        .btn-action svg { width: 14px; height: 14px; }
-        .resizer {
-            width: 5px;
-            height: 100%;
-            position: absolute;
-            right: 0;
-            top: 0;
-            cursor: col-resize;
-            user-select: none;
-            z-index: 10;
-        }
-        .resizer:hover, .resizer.resizing {
-            background-color: var(--vscode-focusBorder);
-        }
-    </style>
-</head>
-<body>
-    <table id="watchTable">
-        <thead>
-            <tr>
-                <th id="th-var" style="width: 25%;">Variable<div class="resizer" id="var-resizer"></div></th>
-                <th>Value</th>
-                <th id="th-type" style="width: 20%;">Type<div class="resizer" id="type-resizer"></div></th>
-                <th style="width: 48px;"></th>
-            </tr>
-        </thead>
-        <tbody id="watchBody">
-            <!-- Rows will be injected here -->
-        </tbody>
-        <tfoot>
-            <tr>
-                <td colspan="4"><input type="text" class="add-var" id="newVarInput" placeholder="Add variable to watch... (Press Enter)" /></td>
-            </tr>
-        </tfoot>
-    </table>
-
-    <script>
+export const watchScripts = `
         const vscode = acquireVsCodeApi();
         const watchBody = document.getElementById('watchBody');
         const newVarInput = document.getElementById('newVarInput');
@@ -227,7 +172,4 @@ export function getWatchWebviewContent(): string {
                 watchBody.appendChild(tr);
             });
         }
-    </script>
-</body>
-</html>`;
-}
+    `;
