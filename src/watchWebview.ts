@@ -14,8 +14,10 @@ export function getWatchWebviewContent(): string {
         input.add-var { background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); width: 100%; box-sizing: border-box; }
         button { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 2px 6px; cursor: pointer; }
         button:hover { background: var(--vscode-button-hoverBackground); }
-		.btn-remove { cursor: pointer; color: var(--vscode-icon-foreground, #888); display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
-        .btn-remove:hover { color: var(--vscode-errorForeground); }
+		.btn-action { cursor: pointer; color: var(--vscode-icon-foreground, #888); display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 3px; }
+        .btn-action:hover { background-color: var(--vscode-toolbar-hoverBackground, rgba(90, 93, 94, 0.31)); color: var(--vscode-foreground); }
+        .btn-action.danger:hover { color: var(--vscode-errorForeground); }
+        .btn-action svg { width: 14px; height: 14px; }
         .resizer {
             width: 5px;
             height: 100%;
@@ -37,6 +39,7 @@ export function getWatchWebviewContent(): string {
             <tr>
                 <th id="th-var" style="width: 25%;">Variable<div class="resizer" id="var-resizer"></div></th>
                 <th>Value</th>
+                <th id="th-type" style="width: 20%;">Type<div class="resizer" id="type-resizer"></div></th>
                 <th style="width: 48px;"></th>
             </tr>
         </thead>
@@ -45,7 +48,7 @@ export function getWatchWebviewContent(): string {
         </tbody>
         <tfoot>
             <tr>
-                <td colspan="3"><input type="text" class="add-var" id="newVarInput" placeholder="Add variable to watch... (Press Enter)" /></td>
+                <td colspan="4"><input type="text" class="add-var" id="newVarInput" placeholder="Add variable to watch... (Press Enter)" /></td>
             </tr>
         </tfoot>
     </table>
@@ -75,29 +78,51 @@ export function getWatchWebviewContent(): string {
         });
 
         const thVar = document.getElementById('th-var');
-        const resizer = document.getElementById('var-resizer');
-        let isResizing = false;
+        const varResizer = document.getElementById('var-resizer');
+        const thType = document.getElementById('th-type');
+        const typeResizer = document.getElementById('type-resizer');
+        
+        let isResizingVar = false;
+        let isResizingType = false;
         let startX, startWidth;
 
-        resizer.addEventListener('mousedown', (e) => {
-            isResizing = true;
+        varResizer.addEventListener('mousedown', (e) => {
+            isResizingVar = true;
             startX = e.pageX;
             startWidth = thVar.offsetWidth;
-            resizer.classList.add('resizing');
+            varResizer.classList.add('resizing');
+            document.body.style.cursor = 'col-resize';
+            e.preventDefault();
+        });
+
+        typeResizer.addEventListener('mousedown', (e) => {
+            isResizingType = true;
+            startX = e.pageX;
+            startWidth = thType.offsetWidth;
+            typeResizer.classList.add('resizing');
             document.body.style.cursor = 'col-resize';
             e.preventDefault();
         });
 
         document.addEventListener('mousemove', (e) => {
-            if (!isResizing) return;
-            const diff = e.pageX - startX;
-            thVar.style.width = startWidth + diff + 'px';
+            if (isResizingVar) {
+                const diff = e.pageX - startX;
+                thVar.style.width = startWidth + diff + 'px';
+            } else if (isResizingType) {
+                const diff = e.pageX - startX;
+                thType.style.width = startWidth + diff + 'px';
+            }
         });
 
         document.addEventListener('mouseup', () => {
-            if (isResizing) {
-                isResizing = false;
-                resizer.classList.remove('resizing');
+            if (isResizingVar) {
+                isResizingVar = false;
+                varResizer.classList.remove('resizing');
+                document.body.style.cursor = '';
+            }
+            if (isResizingType) {
+                isResizingType = false;
+                typeResizer.classList.remove('resizing');
                 document.body.style.cursor = '';
             }
         });
@@ -166,16 +191,26 @@ export function getWatchWebviewContent(): string {
                 }
                 tr.appendChild(tdVal);
 
+                const tdType = document.createElement('td');
+                const typeText = item.type || (item.isComplex ? 'object' : 'unknown');
+                tdType.textContent = typeText;
+                tdType.style.color = '#569CD6'; // VS Code blue for types
+                tdType.style.opacity = '0.9';
+                tdType.style.fontSize = '0.9em';
+                tdType.style.fontFamily = 'monospace';
+                tr.appendChild(tdType);
+
                 const tdActions = document.createElement('td');
                 tdActions.style.padding = '2px';
                 tdActions.style.display = 'flex';
-                tdActions.style.justifyContent = 'space-around';
+                tdActions.style.justifyContent = 'center';
                 tdActions.style.alignItems = 'center';
+                tdActions.style.gap = '4px';
 
                 if (item.isComplex) {
                     const btnTable = document.createElement('span');
                     btnTable.title = 'Show as Table';
-                    btnTable.className = 'btn-remove'; // reuse style
+                    btnTable.className = 'btn-action'; // reuse style
                     btnTable.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M14 3H2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1zM2 4h3v2H2V4zm4 0h3v2H6V4zm4 0h4v2h-4V4zM2 7h3v2H2V7zm4 0h3v2H6V7zm4 0h4v2h-4V7zM2 10h3v2H2v-2zm4 0h3v2H6v-2zm4 0h4v2h-4v-2z"/></svg>';
                     btnTable.onclick = () => vscode.postMessage({ command: 'viewAsTable', expression: item.expression });
                     tdActions.appendChild(btnTable);
@@ -183,7 +218,7 @@ export function getWatchWebviewContent(): string {
 
                 const btnX = document.createElement('span');
                 btnX.title = 'Remove Variable';
-                btnX.className = 'btn-remove';
+                btnX.className = 'btn-action danger';
                 btnX.innerHTML = '<svg fill="currentColor" width="14" height="14" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4L4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg>';
                 btnX.onclick = () => vscode.postMessage({ command: 'removeVariable', index });
                 tdActions.appendChild(btnX);

@@ -142,6 +142,13 @@ export function getWebviewContent(): string {
                 background: var(--vscode-bg);
                 padding: 4px;
             }
+            .sortable-th {
+                cursor: pointer;
+                user-select: none;
+            }
+            .sortable-th:hover {
+                background: rgba(255, 255, 255, 0.1);
+            }
             th:last-child, td:last-child {
                 border-right: none;
             }
@@ -194,12 +201,63 @@ export function getWebviewContent(): string {
                 opacity: 0.6;
                 font-style: italic;
             }
+            .chart-container {
+                flex: 1;
+                overflow: auto;
+                padding: 10px;
+                border: 1px solid var(--vscode-border);
+                border-radius: 4px;
+                background: rgba(0,0,0,0.1);
+            }
+            .chart-row {
+                display: flex;
+                align-items: center;
+                margin-bottom: 8px;
+            }
+            .chart-label {
+                width: 150px;
+                min-width: 150px;
+                text-align: right;
+                padding-right: 15px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                font-size: 0.9em;
+                color: var(--vscode-fg);
+            }
+            .chart-bar-area {
+                flex: 1;
+                height: 20px;
+                background: rgba(255, 255, 255, 0.05);
+                border-radius: 3px;
+                position: relative;
+                display: flex;
+                align-items: center;
+            }
+            .chart-bar {
+                height: 100%;
+                background: #007fd4;
+                border-radius: 3px;
+                min-width: 2px;
+                transition: width 0.3s ease;
+            }
+            .chart-val {
+                margin-left: 8px;
+                font-size: 0.8em;
+                color: var(--vscode-fg);
+                opacity: 0.8;
+                white-space: nowrap;
+            }
         </style>
     </head>
     <body>
         <div class="header">
             <h2 id="tableName">Select a variable to view</h2>
             <div class="controls">
+                <button class="text-button" id="viewChartBtn" title="Toggle Chart View">View Chart</button>
+                <button class="text-button" id="exportCsvBtn" title="Export as CSV">Export CSV</button>
+                <button class="text-button" id="exportJsonBtn" title="Export as JSON">Export JSON</button>
+
                 <button class="icon-button" id="insertRowBtn" title="Insert Row">
                     <svg fill="currentColor" width="16" height="16" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M8 12.5l3-3h-2V2H7v7.5H5l3 3z"/><path d="M2 14h12v1H2v-1z"/></svg>
                 </button>
@@ -231,6 +289,22 @@ export function getWebviewContent(): string {
                 <tbody id="tableBody"></tbody>
             </table>
         </div>
+        
+        <div class="chart-container" id="chartContainer" style="display:none;"></div>
+        
+        <div class="header" id="paginationBar" style="display:none; margin-top: 0.5rem; justify-content: flex-end;">
+            <div class="controls" style="align-items: center;">
+                <button class="text-button" id="prevPageBtn" title="Previous Page">&lt; Prev</button>
+                <span id="pageInfo" style="font-size: 0.9em; margin: 0 10px;">Page 1 of 1</span>
+                <button class="text-button" id="nextPageBtn" title="Next Page">Next &gt;</button>
+                <select id="rowsPerPageSelect" style="background: var(--vscode-bg); color: var(--vscode-fg); border: 1px solid var(--vscode-border); border-radius: 4px; padding: 2px;">
+                    <option value="50">50 rows</option>
+                    <option value="100" selected>100 rows</option>
+                    <option value="500">500 rows</option>
+                    <option value="1000">1000 rows</option>
+                </select>
+            </div>
+        </div>
 
         <script>
             const vscode = acquireVsCodeApi();
@@ -239,7 +313,15 @@ export function getWebviewContent(): string {
             let allColumns = [];
             let visibleColumns = [];
             let filters = {};
+            let sortCol = null;
+            let sortAsc = true;
             let currentVariableName = '';
+            
+            let currentPage = 1;
+            let rowsPerPage = 100;
+            let totalFilteredRows = 0;
+            
+            let isChartView = false;
 
             const tableHead = document.getElementById('tableHead');
             const tableBody = document.getElementById('tableBody');
@@ -249,9 +331,62 @@ export function getWebviewContent(): string {
             const deleteRowsBtn = document.getElementById('deleteRowsBtn');
             const insertRowBtn = document.getElementById('insertRowBtn');
             const appendRowBtn = document.getElementById('appendRowBtn');
+            const exportCsvBtn = document.getElementById('exportCsvBtn');
+            const exportJsonBtn = document.getElementById('exportJsonBtn');
             const emptyState = document.getElementById('emptyState');
             const tableContainer = document.getElementById('tableContainer');
             const tableName = document.getElementById('tableName');
+
+            const viewChartBtn = document.getElementById('viewChartBtn');
+            const chartContainer = document.getElementById('chartContainer');
+
+            const paginationBar = document.getElementById('paginationBar');
+            const prevPageBtn = document.getElementById('prevPageBtn');
+            const nextPageBtn = document.getElementById('nextPageBtn');
+            const pageInfo = document.getElementById('pageInfo');
+            const rowsPerPageSelect = document.getElementById('rowsPerPageSelect');
+
+            rowsPerPageSelect.addEventListener('change', (e) => {
+                rowsPerPage = parseInt(e.target.value, 10);
+                currentPage = 1;
+                renderBody();
+            });
+
+            prevPageBtn.addEventListener('click', () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    renderBody();
+                }
+            });
+
+            nextPageBtn.addEventListener('click', () => {
+                const totalPages = Math.ceil(totalFilteredRows / rowsPerPage);
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    renderBody();
+                }
+            });
+
+            viewChartBtn.addEventListener('click', () => {
+                isChartView = !isChartView;
+                if (isChartView) {
+                    viewChartBtn.innerText = "View Table";
+                    viewChartBtn.style.color = '#fff';
+                    viewChartBtn.style.background = '#007fd4';
+                    tableContainer.style.display = 'none';
+                    paginationBar.style.display = 'none';
+                    chartContainer.style.display = 'block';
+                    renderChart();
+                } else {
+                    viewChartBtn.innerText = "View Chart";
+                    viewChartBtn.style.color = 'var(--vscode-fg)';
+                    viewChartBtn.style.background = 'var(--glass-bg)';
+                    tableContainer.style.display = 'block';
+                    paginationBar.style.display = 'flex';
+                    chartContainer.style.display = 'none';
+                    renderBody();
+                }
+            });
 
             window.addEventListener('message', event => {
                 const message = event.data;
@@ -263,15 +398,29 @@ export function getWebviewContent(): string {
                         allColumns = message.columns.filter(c => c !== '(index)');
                         visibleColumns = [...allColumns];
                         filters = {};
+                        sortCol = null;
+                        sortAsc = true;
+                        currentPage = 1;
                         
                         emptyState.style.display = 'none';
-                        tableContainer.style.display = 'block';
+                        if (isChartView) {
+                            chartContainer.style.display = 'block';
+                            paginationBar.style.display = 'none';
+                            tableContainer.style.display = 'none';
+                        } else {
+                            tableContainer.style.display = 'block';
+                            paginationBar.style.display = 'flex';
+                            chartContainer.style.display = 'none';
+                        }
                         
                         // Show buttons
                         colsBtn.style.display = 'flex';
                         deleteRowsBtn.style.display = 'flex';
                         insertRowBtn.style.display = 'inline-block';
                         appendRowBtn.style.display = 'inline-block';
+                        exportCsvBtn.style.display = 'inline-block';
+                        exportJsonBtn.style.display = 'inline-block';
+                        viewChartBtn.style.display = 'inline-block';
                         if (!message.isEditorPanel) {
                             showInEditorBtn.style.display = 'flex';
                         }
@@ -301,6 +450,24 @@ export function getWebviewContent(): string {
                     data: rawData,
                     columns: ['(index)', ...allColumns],
                     variableName: currentVariableName
+                });
+            });
+
+            exportCsvBtn.addEventListener('click', () => {
+                vscode.postMessage({
+                    command: 'exportData',
+                    format: 'csv',
+                    data: rawData,
+                    columns: visibleColumns
+                });
+            });
+
+            exportJsonBtn.addEventListener('click', () => {
+                vscode.postMessage({
+                    command: 'exportData',
+                    format: 'json',
+                    data: rawData,
+                    columns: visibleColumns
                 });
             });
 
@@ -363,7 +530,8 @@ export function getWebviewContent(): string {
                         }
                         visibleColumns.sort((a,b) => allColumns.indexOf(a) - allColumns.indexOf(b));
                         renderDropdown();
-                        renderTable();
+                        if (isChartView) renderChart();
+                        else renderTable();
                     });
                     
                     colsDropdown.appendChild(div);
@@ -415,8 +583,24 @@ export function getWebviewContent(): string {
 
                 visibleColumns.forEach(col => {
                     const th = document.createElement('th');
-                    th.innerText = col;
+                    th.className = 'sortable-th';
+                    let text = col;
+                    if (sortCol === col) {
+                        text += sortAsc ? ' ▲' : ' ▼';
+                    }
+                    th.innerText = text;
                     th.dataset.col = col;
+                    th.addEventListener('click', () => {
+                        if (sortCol === col) {
+                            if (!sortAsc) { sortCol = null; } 
+                            else { sortAsc = false; }
+                        } else {
+                            sortCol = col;
+                            sortAsc = true;
+                        }
+                        if (isChartView) renderChart();
+                        else renderTable();
+                    });
                     
                     const resizer = document.createElement('div');
                     resizer.className = 'resizer';
@@ -439,7 +623,9 @@ export function getWebviewContent(): string {
                     input.value = filters[col] || '';
                     input.addEventListener('input', (e) => {
                         filters[col] = e.target.value.toLowerCase();
-                        renderBody();
+                        currentPage = 1;
+                        if (isChartView) renderChart();
+                        else renderBody();
                     });
                     filterTh.appendChild(input);
                     filterRow.appendChild(filterTh);
@@ -453,7 +639,7 @@ export function getWebviewContent(): string {
 
             function renderBody() {
                 tableBody.innerHTML = '';
-                const filteredData = rawData.filter(row => {
+                let filteredData = rawData.filter(row => {
                     return visibleColumns.every(col => {
                         const filterVal = filters[col];
                         if (!filterVal) return true;
@@ -462,7 +648,45 @@ export function getWebviewContent(): string {
                     });
                 });
 
-                filteredData.forEach(row => {
+                if (sortCol) {
+                    filteredData.sort((a, b) => {
+                        let valA = a[sortCol];
+                        let valB = b[sortCol];
+                        if (valA === undefined) valA = '';
+                        if (valB === undefined) valB = '';
+                        
+                        // Numeric sort fallback
+                        const numA = Number(valA);
+                        const numB = Number(valB);
+                        if (!isNaN(numA) && !isNaN(numB) && valA !== '' && valB !== '') {
+                            return sortAsc ? numA - numB : numB - numA;
+                        }
+
+                        const strA = String(valA).toLowerCase();
+                        const strB = String(valB).toLowerCase();
+                        if (strA < strB) return sortAsc ? -1 : 1;
+                        if (strA > strB) return sortAsc ? 1 : -1;
+                        return 0;
+                    });
+                }
+                
+                totalFilteredRows = filteredData.length;
+                const totalPages = Math.ceil(totalFilteredRows / rowsPerPage) || 1;
+                if (currentPage > totalPages) currentPage = totalPages;
+                
+                pageInfo.innerText = "Page " + currentPage + " of " + totalPages + " (" + totalFilteredRows + " items)";
+                
+                const startIndex = (currentPage - 1) * rowsPerPage;
+                const paginatedData = filteredData.slice(startIndex, startIndex + rowsPerPage);
+                
+                prevPageBtn.style.display = 'inline-block';
+                nextPageBtn.style.display = 'inline-block';
+                prevPageBtn.disabled = currentPage === 1;
+                nextPageBtn.disabled = currentPage === totalPages;
+                prevPageBtn.style.opacity = currentPage === 1 ? '0.5' : '1';
+                nextPageBtn.style.opacity = currentPage === totalPages ? '0.5' : '1';
+
+                paginatedData.forEach(row => {
                     const tr = document.createElement('tr');
                     
                     // Checkbox
@@ -510,6 +734,98 @@ export function getWebviewContent(): string {
                     });
                     
                     tableBody.appendChild(tr);
+                });
+            }
+
+            function renderChart() {
+                chartContainer.innerHTML = '';
+                
+                let filteredData = rawData.filter(row => {
+                    return visibleColumns.every(col => {
+                        const filterVal = filters[col];
+                        if (!filterVal) return true;
+                        const cellVal = String(row[col] === undefined ? '' : row[col]).toLowerCase();
+                        return cellVal.includes(filterVal);
+                    });
+                });
+
+                if (filteredData.length === 0) {
+                    chartContainer.innerHTML = '<div style="opacity: 0.5;">No data matches filters.</div>';
+                    return;
+                }
+
+                // Auto-detect best column for X (labels) and Y (numbers)
+                let xCol = '(index)';
+                let yCol = null;
+
+                for (let col of visibleColumns) {
+                    if (col === '(index)') continue;
+                    // Check if mostly numbers
+                    const isNum = filteredData.some(r => !isNaN(parseFloat(r[col])));
+                    if (isNum && !yCol) {
+                        yCol = col;
+                        break;
+                    }
+                }
+                
+                if (!yCol) {
+                    chartContainer.innerHTML = '<div style="opacity: 0.5;">No numeric columns found to chart.</div>';
+                    return;
+                }
+
+                // If first column is strings, use it as label, else just index
+                const firstCol = visibleColumns[0];
+                if (firstCol !== '(index)' && firstCol !== yCol) {
+                    xCol = firstCol;
+                }
+
+                if (sortCol) {
+                    filteredData.sort((a, b) => {
+                        let valA = a[sortCol]; let valB = b[sortCol];
+                        if (valA === undefined) valA = ''; if (valB === undefined) valB = '';
+                        const numA = Number(valA); const numB = Number(valB);
+                        if (!isNaN(numA) && !isNaN(numB) && valA !== '' && valB !== '') {
+                            return sortAsc ? numA - numB : numB - numA;
+                        }
+                        const strA = String(valA).toLowerCase(); const strB = String(valB).toLowerCase();
+                        if (strA < strB) return sortAsc ? -1 : 1;
+                        if (strA > strB) return sortAsc ? 1 : -1;
+                        return 0;
+                    });
+                }
+
+                const yValues = filteredData.map(r => parseFloat(r[yCol]) || 0);
+                const maxY = Math.max(...yValues, 0.0001); // Prevent div by 0
+
+                filteredData.forEach((row, i) => {
+                    const label = row[xCol] !== undefined ? String(row[xCol]) : '';
+                    const val = yValues[i];
+                    const percent = (val / maxY) * 100;
+                    
+                    const rowDiv = document.createElement('div');
+                    rowDiv.className = 'chart-row';
+                    
+                    const labelDiv = document.createElement('div');
+                    labelDiv.className = 'chart-label';
+                    labelDiv.title = label;
+                    labelDiv.innerText = label;
+                    
+                    const areaDiv = document.createElement('div');
+                    areaDiv.className = 'chart-bar-area';
+                    
+                    const barDiv = document.createElement('div');
+                    barDiv.className = 'chart-bar';
+                    barDiv.style.width = Math.max(percent, 0) + '%';
+                    
+                    const valDiv = document.createElement('div');
+                    valDiv.className = 'chart-val';
+                    valDiv.innerText = val.toLocaleString();
+                    
+                    areaDiv.appendChild(barDiv);
+                    areaDiv.appendChild(valDiv);
+                    rowDiv.appendChild(labelDiv);
+                    rowDiv.appendChild(areaDiv);
+                    chartContainer.appendChild(rowDiv);
                 });
             }
         </script>

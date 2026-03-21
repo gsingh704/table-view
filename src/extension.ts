@@ -69,6 +69,38 @@ class TableViewProvider {
 			});
 		} else if (message.command === 'refresh') {
 			await this.refresh();
+		} else if (message.command === 'exportData') {
+			await this.exportData(message.format, message.data, message.columns);
+		}
+	}
+
+	private async exportData(format: 'csv' | 'json', data: any[], columns: string[]) {
+		let content = '';
+		if (format === 'csv') {
+			content = columns.join(',') + '\n';
+			content += data.map(row => columns.map(c => {
+				const val = row[c] === undefined ? '' : String(row[c]);
+				return `"${val.replace(/"/g, '""')}"`;
+			}).join(',')).join('\n');
+		} else {
+			content = JSON.stringify(data.map(row => {
+				const obj: any = {};
+				columns.forEach(c => obj[c] = row[c]);
+				return obj;
+			}), null, 2);
+		}
+
+		const uri = await vscode.window.showSaveDialog({
+			defaultUri: vscode.Uri.file(`${this._currentName}_export.${format}`),
+			filters: { [format.toUpperCase()]: [format] }
+		});
+		if (uri) {
+			try {
+				await vscode.workspace.fs.writeFile(uri, Buffer.from(content, 'utf8'));
+				vscode.window.showInformationMessage(`Successfully exported data to ${uri.fsPath}`);
+			} catch (e) {
+				vscode.window.showErrorMessage('Failed to save export file: ' + (e as Error).message);
+			}
 		}
 	}
 
@@ -316,7 +348,9 @@ export function activate(context: vscode.ExtensionContext) {
 
 	const watchProvider = new WatchProvider();
 	context.subscriptions.push(
-		vscode.window.registerWebviewViewProvider(WatchProvider.viewType, watchProvider)
+		vscode.window.registerWebviewViewProvider(WatchProvider.viewType, watchProvider, {
+			webviewOptions: { retainContextWhenHidden: true }
+		})
 	);
 
 	const disposableClearVariables = vscode.commands.registerCommand('tableView.clearVariables', () => {

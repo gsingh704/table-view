@@ -5,6 +5,7 @@ import { getActiveFrameId } from './extension';
 interface WatchItem {
 	expression: string;
 	value?: string;
+	type?: string;
 	isComplex?: boolean;
 	error?: string;
 }
@@ -96,6 +97,7 @@ export class WatchProvider implements vscode.WebviewViewProvider {
 				data.push({
 					expression: expr,
 					value: rawValue,
+					type: response.type,
 					isComplex: response.variablesReference > 0
 				});
 			} catch (e) {
