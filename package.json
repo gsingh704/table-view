@@ -3,7 +3,7 @@
   "displayName": "Table View",
   "description": "View 2D arrays in Table format",
   "version": "0.0.1",
-  "publisher": "gurjantsingh",
+  "publisher": "gsingh704",
   "license": "MIT",
   "engines": {
     "vscode": "^1.107.0"
@@ -94,7 +94,8 @@
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
     "test": "vscode-test",
-    "package": "vsce package"
+    "package": "vsce package",
+    "publish": "vsce publish"
   },
   "devDependencies": {
     "@types/vscode": "^1.107.0",
