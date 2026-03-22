@@ -9,12 +9,28 @@
     "vscode": "^1.107.0"
   },
   "categories": [
-    "Other"
+    "Debuggers",
+    "Visualization",
+    "Data Science"
+  ],
+  "keywords": [
+    "table",
+    "grid",
+    "data",
+    "visualization",
+    "debug",
+    "chart",
+    "csv",
+    "json",
+    "array",
+    "object",
+    "inspect",
+    "viewer"
   ],
   "author": {
     "name": "Gurjant Singh",
     "email": "gurjant.dev@gmail.com",
-    "url": "https://www.gurjant.fyi"
+    "url": "https://gurjant.fyi"
   },
   "repository": {
     "type": "git",
