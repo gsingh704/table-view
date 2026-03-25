@@ -5,6 +5,9 @@
   "version": "0.0.3",
   "publisher": "gsingh704",
   "license": "MIT",
+  "engines": {
+    "vscode": "*"
+  },
   "categories": [
     "Debuggers",
     "Visualization",
