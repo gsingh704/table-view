@@ -6,7 +6,7 @@
   "publisher": "gsingh704",
   "license": "MIT",
   "engines": {
-    "vscode": "^0.10.0"
+    "vscode": "^1.80.0"
   },
   "categories": [
     "Debuggers",
@@ -114,7 +114,7 @@
     "publish": "vsce publish"
   },
   "devDependencies": {
-    "@types/vscode": "^1.107.0",
+    "@types/vscode": "^1.80.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
     "typescript-eslint": "^8.56.1",
