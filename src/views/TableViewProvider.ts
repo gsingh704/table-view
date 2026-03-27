@@ -11,6 +11,46 @@ export class TableViewProvider {
 	private _currentRef?: number;
 	private _currentName?: string;
 	private _currentRootEvalName?: string;
+	private _autoRefreshTimer?: NodeJS.Timeout;
+	private _autoRefreshInterval?: NodeJS.Timeout;
+
+	constructor() {
+		vscode.debug.onDidChangeActiveDebugSession(() => this.triggerAutoRefresh());
+		vscode.debug.onDidReceiveDebugSessionCustomEvent(() => this.triggerAutoRefresh());
+		vscode.debug.onDidTerminateDebugSession(() => this.triggerAutoRefresh());
+		vscode.debug.onDidStartDebugSession(() => this.triggerAutoRefresh());
+		vscode.debug.onDidChangeBreakpoints(() => this.triggerAutoRefresh());
+	}
+
+	private startAutoRefreshInterval() {
+		if (this._autoRefreshInterval) { return; }
+		this._autoRefreshInterval = setInterval(() => {
+			if (this._panel && this._currentSession && this._currentRef) {
+				this.refresh();
+			}
+		}, 1000);
+	}
+
+	private stopAutoRefreshInterval() {
+		if (this._autoRefreshInterval) {
+			clearInterval(this._autoRefreshInterval);
+			this._autoRefreshInterval = undefined;
+		}
+	}
+
+	private triggerAutoRefresh() {
+		if (!this._panel || !this._currentSession || !this._currentRef) {
+			return;
+		}
+
+		if (this._autoRefreshTimer) {
+			clearTimeout(this._autoRefreshTimer);
+		}
+
+		this._autoRefreshTimer = setTimeout(() => {
+			this.refresh();
+		}, 150);
+	}
 
 	public show() {
 		if (this._panel) {
@@ -27,7 +67,9 @@ export class TableViewProvider {
 			this._panel.webview.onDidReceiveMessage(message => this.handleMessage(message));
 			this._panel.onDidDispose(() => {
 				this._panel = undefined;
+				this.stopAutoRefreshInterval();
 			});
+			this.startAutoRefreshInterval();
 		}
 
 		if (this._pendingData) {
@@ -211,17 +253,47 @@ export class TableViewProvider {
 		}
 	}
 
+	private async resolveCurrentReference(): Promise<number | undefined> {
+		if (!this._currentSession) { return this._currentRef; }
+
+		// Try to refresh from current expression path if available.
+		if (this._currentRootEvalName) {
+			try {
+				const frameId = await getActiveFrameId(this._currentSession);
+				const args: any = { expression: this._currentRootEvalName, context: 'hover' };
+				if (frameId !== undefined) {
+					args.frameId = frameId;
+				}
+				const response = await this._currentSession.customRequest('evaluate', args);
+				if (response && typeof response.variablesReference === 'number' && response.variablesReference > 0) {
+					this._currentRef = response.variablesReference;
+					return response.variablesReference;
+				}
+			} catch (e) {
+				// ignore evaluate errors (e.g., not set yet), fallback to existing ref
+			}
+		}
+
+		return this._currentRef;
+	}
+
 	public async refresh() {
-		if (!this._currentSession || !this._currentRef || !this._currentName) { return; }
-		vscode.window.withProgress({
-			location: vscode.ProgressLocation.Notification,
-			title: `Refreshing table data for ${this._currentName}...`,
-			cancellable: false
-		}, async () => {
-			const { tableData, allColumns } = await extractTableData(this._currentSession!, this._currentRef!);
+		if (!this._panel || !this._currentSession || !this._currentName) {
+			return;
+		}
+
+		const currentRef = await this.resolveCurrentReference();
+		if (!currentRef) {
+			return;
+		}
+
+		try {
+			const { tableData, allColumns } = await extractTableData(this._currentSession!, currentRef);
 			if (this._panel) {
 				this._panel.webview.postMessage({ type: 'update', data: tableData, columns: Array.from(allColumns), variableName: this._currentName, isEditorPanel: true });
 			}
-		});
+		} catch (e) {
+			console.error(`Failed to refresh table for ${this._currentName}:`, e);
+		}
 	}
 }

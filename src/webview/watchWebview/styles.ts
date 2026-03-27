@@ -1,7 +1,22 @@
 export const watchStyles = `
         body { font-family: var(--vscode-font-family); padding: 10px; color: var(--vscode-editor-foreground); }
-        table { border-collapse: collapse; width: 100%; border: 1px solid var(--vscode-panel-border); table-layout: fixed; }
-        th, td { border: 1px solid var(--vscode-panel-border); padding: 5px; text-align: left; position: relative; }
+        table {
+            border-collapse: collapse;
+            border-spacing: 0;
+            width: 100%;
+            border: 1px solid var(--vscode-panel-border);
+            table-layout: fixed;
+        }
+        th, td {
+            border: none;
+            border-bottom: 1px solid var(--vscode-panel-border);
+            padding: 5px;
+            text-align: left;
+            position: relative;
+        }
+        tr:last-child th, tr:last-child td {
+            border-bottom: none;
+        }
         th { background: var(--vscode-editor-background); position: sticky; top: 0; }
         input.edit-var { background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); width: 100%; box-sizing: border-box; }
         input.add-var { background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); width: 100%; box-sizing: border-box; }

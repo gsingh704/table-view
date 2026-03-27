@@ -14,11 +14,8 @@ export const tableScripts = `
             let totalFilteredRows = 0;
             
             let isChartView = false;
-
-            const tableHead = document.getElementById('tableHead');
-            const tableBody = document.getElementById('tableBody');
-            const colsDropdown = document.getElementById('colsDropdown');
-            const colsBtn = document.getElementById('colsBtn');
+            let selectedRowIndexes = new Set();
+            let selectAllChecked = false;
             const showInEditorBtn = document.getElementById('showInEditorBtn');
             const deleteRowsBtn = document.getElementById('deleteRowsBtn');
             const insertRowBtn = document.getElementById('insertRowBtn');
@@ -176,8 +173,13 @@ export const tableScripts = `
             // Handle select all checkbox
             document.addEventListener('change', (e) => {
                 if (e.target.id === 'selectAll') {
-                    const checked = e.target.checked;
-                    document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = checked);
+                    selectAllChecked = e.target.checked;
+                    const checked = selectAllChecked;
+                    document.querySelectorAll('.row-checkbox').forEach(cb => {
+                        cb.checked = checked;
+                        if (checked) selectedRowIndexes.add(cb.value);
+                        else selectedRowIndexes.delete(cb.value);
+                    });
                 }
             });
 
@@ -259,7 +261,9 @@ export const tableScripts = `
                 // Checkbox Col
                 const checkTh = document.createElement('th');
                 checkTh.innerHTML = '<input type="checkbox" id="selectAll">';
-                checkTh.style.width = '24px';
+                checkTh.style.width = '20px';
+                checkTh.style.minWidth = '20px';
+                checkTh.style.maxWidth = '24px';
                 checkTh.style.textAlign = 'center';
                 titleRow.appendChild(checkTh);
                 filterRow.appendChild(document.createElement('th'));
@@ -267,7 +271,9 @@ export const tableScripts = `
                 // Index Col
                 const indexTh = document.createElement('th');
                 indexTh.innerText = '#';
-                indexTh.style.width = '40px';
+                indexTh.style.width = 'auto';
+                indexTh.style.minWidth = '12px';
+                indexTh.style.maxWidth = '80px';
                 indexTh.style.textAlign = 'right';
                 indexTh.style.color = '#888';
                 titleRow.appendChild(indexTh);
@@ -384,7 +390,22 @@ export const tableScripts = `
                     // Checkbox
                     const checkTd = document.createElement('td');
                     checkTd.style.textAlign = 'center';
-                    checkTd.innerHTML = '<input type="checkbox" class="row-checkbox" value="' + row['(index)'] + '">';
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.className = 'row-checkbox';
+                    checkbox.value = String(row['(index)']);
+                    checkbox.checked = selectAllChecked || selectedRowIndexes.has(checkbox.value);
+                    checkbox.addEventListener('change', (e) => {
+                        if (e.target.checked) {
+                            selectedRowIndexes.add(checkbox.value);
+                        } else {
+                            selectedRowIndexes.delete(checkbox.value);
+                            selectAllChecked = false;
+                            const selectAll = document.getElementById('selectAll');
+                            if (selectAll) selectAll.checked = false;
+                        }
+                    });
+                    checkTd.appendChild(checkbox);
                     tr.appendChild(checkTd);
 
                     // Index

@@ -24,11 +24,8 @@ export const watchScripts = `
 
         const thVar = document.getElementById('th-var');
         const varResizer = document.getElementById('var-resizer');
-        const thType = document.getElementById('th-type');
-        const typeResizer = document.getElementById('type-resizer');
         
         let isResizingVar = false;
-        let isResizingType = false;
         let startX, startWidth;
 
         varResizer.addEventListener('mousedown', (e) => {
@@ -40,22 +37,10 @@ export const watchScripts = `
             e.preventDefault();
         });
 
-        typeResizer.addEventListener('mousedown', (e) => {
-            isResizingType = true;
-            startX = e.pageX;
-            startWidth = thType.offsetWidth;
-            typeResizer.classList.add('resizing');
-            document.body.style.cursor = 'col-resize';
-            e.preventDefault();
-        });
-
         document.addEventListener('mousemove', (e) => {
             if (isResizingVar) {
                 const diff = e.pageX - startX;
                 thVar.style.width = startWidth + diff + 'px';
-            } else if (isResizingType) {
-                const diff = e.pageX - startX;
-                thType.style.width = startWidth + diff + 'px';
             }
         });
 
@@ -63,11 +48,6 @@ export const watchScripts = `
             if (isResizingVar) {
                 isResizingVar = false;
                 varResizer.classList.remove('resizing');
-                document.body.style.cursor = '';
-            }
-            if (isResizingType) {
-                isResizingType = false;
-                typeResizer.classList.remove('resizing');
                 document.body.style.cursor = '';
             }
         });
@@ -135,15 +115,6 @@ export const watchScripts = `
                     };
                 }
                 tr.appendChild(tdVal);
-
-                const tdType = document.createElement('td');
-                const typeText = item.type || (item.isComplex ? 'object' : 'unknown');
-                tdType.textContent = typeText;
-                tdType.style.color = '#569CD6'; // VS Code blue for types
-                tdType.style.opacity = '0.9';
-                tdType.style.fontSize = '0.9em';
-                tdType.style.fontFamily = 'monospace';
-                tr.appendChild(tdType);
 
                 const tdActions = document.createElement('td');
                 tdActions.style.padding = '2px';

@@ -1,9 +1,8 @@
 # Change Log
 
-All notable changes to the "table-view" extension will be documented in this file.
+## [0.0.5] - 2026-03-27
 
-Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
-
-## [Unreleased]
-
-- Initial release
+- Bugfix: preserve row checkbox selection across auto-refresh
+- Feature: always-on table/watch auto-refresh on debug events
+- Feature: remove progress notifications during refresh
+- Visual fixes

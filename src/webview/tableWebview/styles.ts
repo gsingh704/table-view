@@ -3,16 +3,16 @@ export const tableStyles = `
                 --vscode-bg: var(--vscode-editor-background, #1e1e1e);
                 --vscode-fg: var(--vscode-editor-foreground, #d4d4d4);
                 --vscode-border: var(--vscode-panel-border, #444);
-                --hover-bg: rgba(255, 255, 255, 0.05);
-                --glass-bg: rgba(30, 30, 30, 0.6);
-                --glass-border: rgba(255, 255, 255, 0.1);
+                --hover-bg: rgba(255, 255, 255, 0.08);
+                --glass-bg: rgba(35, 35, 35, 0.95);
+                --glass-border: rgba(255, 255, 255, 0.12);
             }
             body {
                 background-color: transparent;
                 color: var(--vscode-fg);
                 font-family: var(--vscode-font-family, 'Inter', sans-serif);
                 margin: 0;
-                padding: 1rem;
+                padding: 8px;
                 display: flex;
                 flex-direction: column;
                 height: 100vh;
@@ -23,42 +23,40 @@ export const tableStyles = `
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                margin-bottom: 0.5rem;
+                margin-bottom: 6px;
+                padding: 4px 0;
+                border-bottom: 1px solid var(--vscode-border);
             }
             .header h2 {
                 margin: 0;
                 font-weight: 500;
-                font-size: 1.1rem;
+                font-size: 0.95rem;
             }
             .controls {
-                position: relative;
                 display: flex;
-                gap: 8px;
+                gap: 4px;
+                align-items: center;
+                flex-wrap: wrap;
             }
-            .text-button {
+            .text-button, .icon-button {
                 background: var(--glass-bg);
                 border: 1px solid var(--glass-border);
                 color: var(--vscode-fg);
-                padding: 4px 10px;
+                padding: 3px 6px;
                 border-radius: 4px;
                 cursor: pointer;
                 transition: background 0.2s;
-                font-size: 0.9em;
+                font-size: 0.8rem;
                 display: none;
+                line-height: 1.2;
+                min-height: 26px;
             }
-            .text-button:hover {
+            .text-button:hover, .icon-button:hover {
                 background: var(--hover-bg);
             }
             .icon-button {
-                background: transparent;
-                border: 1px solid transparent;
-                color: var(--vscode-fg);
-                padding: 4px;
-                border-radius: 4px;
-                cursor: pointer;
-                transition: background 0.2s;
-                align-items: center;
-                justify-content: center;
+                min-width: 26px;
+                width: 26px;
                 display: none;
             }
             .icon-button:hover {
@@ -104,22 +102,47 @@ export const tableStyles = `
                 overflow: auto;
                 border: 1px solid var(--vscode-border);
                 border-radius: 4px;
-                background: rgba(0,0,0,0.1);
+                background: rgba(0,0,0,0.06);
             }
             table {
                 width: 100%;
                 border-collapse: collapse;
+                border-spacing: 0;
                 text-align: left;
             }
             th, td {
-                padding: 6px 10px;
+                padding: 6px 8px;
+                border: none;
                 border-bottom: 1px solid var(--vscode-border);
-                border-right: 1px solid var(--vscode-border);
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
                 max-width: 300px;
                 font-size: 0.9em;
+            }
+            th:first-child, td:first-child {
+                width: 20px;
+                min-width: 20px;
+                max-width: 24px;
+                text-align: center;
+                padding: 6px 0;
+            }
+            /* index column smallest possible width */
+            th:nth-child(2), td:nth-child(2) {
+                width: 1px;
+                min-width: 1px;
+                max-width: 32px;
+                text-align: right;
+                padding: 0 2px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            tr:not(:last-child) td {
+                border-bottom: 1px solid var(--vscode-border);
+            }
+            th:last-child, td:last-child {
+                border-right: none;
             }
             th {
                 background: var(--glass-bg);
