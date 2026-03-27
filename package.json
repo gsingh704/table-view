@@ -2,11 +2,11 @@
   "name": "table-view",
   "displayName": "Table View",
   "description": "View 2D arrays in Table format",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "publisher": "gsingh704",
   "license": "MIT",
   "engines": {
-    "vscode": "*"
+    "vscode": "^0.10.0"
   },
   "categories": [
     "Debuggers",
