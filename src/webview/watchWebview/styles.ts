@@ -18,8 +18,7 @@ export const watchStyles = `
             border-bottom: none;
         }
         th { background: var(--vscode-editor-background); position: sticky; top: 0; }
-        input.edit-var { background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); width: 100%; box-sizing: border-box; }
-        input.add-var { background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); width: 100%; box-sizing: border-box; }
+        input.edit-var, input.add-var { background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); width: 100%; box-sizing: border-box; }
         button { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 2px 6px; cursor: pointer; }
         button:hover { background: var(--vscode-button-hoverBackground); }
 		.btn-action { cursor: pointer; color: var(--vscode-icon-foreground, #888); display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 3px; }

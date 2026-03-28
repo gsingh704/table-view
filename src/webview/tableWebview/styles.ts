@@ -3,9 +3,7 @@ export const tableStyles = `
                 --vscode-bg: var(--vscode-editor-background, #1e1e1e);
                 --vscode-fg: var(--vscode-editor-foreground, #d4d4d4);
                 --vscode-border: var(--vscode-panel-border, #444);
-                --hover-bg: rgba(255, 255, 255, 0.08);
-                --glass-bg: rgba(35, 35, 35, 0.95);
-                --glass-border: rgba(255, 255, 255, 0.12);
+                --hover-bg: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.1));
             }
             body {
                 background-color: transparent;
@@ -37,10 +35,11 @@ export const tableStyles = `
                 gap: 4px;
                 align-items: center;
                 flex-wrap: wrap;
+                position: relative;
             }
-            .text-button, .icon-button {
-                background: var(--glass-bg);
-                border: 1px solid var(--glass-border);
+            .text-button {
+                background: var(--vscode-bg);
+                border: 1px solid var(--vscode-border);
                 color: var(--vscode-fg);
                 padding: 3px 6px;
                 border-radius: 4px;
@@ -51,31 +50,47 @@ export const tableStyles = `
                 line-height: 1.2;
                 min-height: 26px;
             }
-            .text-button:hover, .icon-button:hover {
+            .text-button:hover {
                 background: var(--hover-bg);
             }
             .icon-button {
-                min-width: 26px;
-                width: 26px;
+                background: transparent;
+                border: none;
+                color: var(--vscode-icon-foreground, var(--vscode-fg));
+                border-radius: 5px;
+                cursor: pointer;
+                transition: background 0.2s, color 0.2s;
                 display: none;
+                align-items: center;
+                justify-content: center;
+                width: 28px;
+                height: 28px;
+                padding: 4px;
+                outline: none;
+            }
+            .icon-button svg {
+                pointer-events: none;
             }
             .icon-button:hover {
-                background: var(--hover-bg);
-                border-color: var(--glass-border);
+                background: var(--vscode-toolbar-hoverBackground, var(--hover-bg));
+                color: var(--vscode-fg);
+            }
+            .icon-button.active {
+                color: var(--vscode-list-highlightForeground, #007fd4);
+                background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.15));
             }
             .danger-btn:hover {
-                background: rgba(244, 135, 113, 0.2);
-                border-color: #f48771;
+                background: rgba(244, 135, 113, 0.15);
                 color: #f48771;
             }
-            .columns-dropdown {
+            .list-dropdown {
                 display: none;
                 position: absolute;
                 right: 0;
                 top: 100%;
                 margin-top: 5px;
                 background: var(--vscode-bg);
-                border: 1px solid var(--glass-border);
+                border: 1px solid var(--vscode-border);
                 border-radius: 4px;
                 padding: 10px;
                 z-index: 100;
@@ -84,8 +99,56 @@ export const tableStyles = `
                 overflow-y: auto;
                 min-width: 150px;
             }
-            .columns-dropdown.show {
+            .list-dropdown.show {
                 display: block;
+            }
+            .filter-dropdown {
+                min-width: 300px;
+                max-height: 400px;
+            }
+            .filter-rule {
+                display: flex;
+                gap: 4px;
+                margin-bottom: 6px;
+                align-items: center;
+            }
+            .vscode-select {
+                background: var(--vscode-bg);
+                color: var(--vscode-fg);
+                border: 1px solid var(--vscode-border);
+                border-radius: 4px;
+                padding: 4px;
+                font-size: 0.85em;
+                outline: none;
+            }
+            .vscode-select:focus {
+                border-color: #007fd4;
+            }
+            .vscode-input {
+                background: var(--vscode-bg);
+                color: var(--vscode-fg);
+                border: 1px solid var(--vscode-border);
+                border-radius: 4px;
+                padding: 4px;
+                font-size: 0.85em;
+                outline: none;
+                flex: 1;
+                min-width: 50px;
+            }
+            .vscode-input:focus {
+                border-color: #007fd4;
+            }
+            .remove-rule-btn {
+                background: transparent;
+                border: none;
+                color: var(--vscode-fg);
+                cursor: pointer;
+                opacity: 0.7;
+                padding: 2px;
+            }
+            .remove-rule-btn:hover {
+                opacity: 1;
+                color: #f48771;
             }
             .dropdown-item {
                 display: flex;
@@ -102,18 +165,17 @@ export const tableStyles = `
                 overflow: auto;
                 border: 1px solid var(--vscode-border);
                 border-radius: 4px;
-                background: rgba(0,0,0,0.06);
+                background: var(--vscode-bg);
             }
             table {
-                width: 100%;
+                width: max-content;
                 border-collapse: collapse;
                 border-spacing: 0;
                 text-align: left;
             }
             th, td {
                 padding: 6px 8px;
-                border: none;
-                border-bottom: 1px solid var(--vscode-border);
+                border: 1px solid var(--vscode-border);
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
@@ -139,34 +201,30 @@ export const tableStyles = `
                 text-overflow: ellipsis;
             }
             tr:not(:last-child) td {
-                border-bottom: 1px solid var(--vscode-border);
+                /* removed bottom border override to allow full grid */
             }
             th:last-child, td:last-child {
-                border-right: none;
+                /* removed right border override */
             }
             th {
-                background: var(--glass-bg);
-                backdrop-filter: blur(10px);
+                background: var(--vscode-editor-background);
                 position: sticky;
                 top: 0;
                 z-index: 10;
                 font-weight: 600;
             }
-            .filter-row th {
-                top: 31px;
-                z-index: 9;
-                background: var(--vscode-bg);
-                padding: 4px;
+            .filter-row {
+                display: none;
             }
             .sortable-th {
                 cursor: pointer;
                 user-select: none;
             }
             .sortable-th:hover {
-                background: rgba(255, 255, 255, 0.1);
+                background: var(--hover-bg);
             }
             th:last-child, td:last-child {
-                border-right: none;
+                /* removed override */
             }
             th .resizer {
                 display: inline-block;
@@ -180,7 +238,7 @@ export const tableStyles = `
             }
             th .resizer:hover {
                 background: var(--vscode-fg);
-                opacity: 0.5;
+                opacity: 0.8;
             }
             td[contenteditable="true"] {
                 cursor: text;
@@ -188,14 +246,15 @@ export const tableStyles = `
                 transition: background 0.2s;
             }
             td[contenteditable="true"]:hover {
-                background: rgba(255,255,255,0.03);
+                background: var(--hover-bg);
             }
             td[contenteditable="true"]:focus {
-                background: rgba(255,255,255,0.08);
+                background: var(--hover-bg);
                 box-shadow: inset 0 0 0 1px #007fd4;
             }
             .filter-input {
                 width: 100%;
+                min-width: 0;
                 box-sizing: border-box;
                 background: var(--vscode-bg);
                 color: var(--vscode-fg);
@@ -223,7 +282,7 @@ export const tableStyles = `
                 padding: 10px;
                 border: 1px solid var(--vscode-border);
                 border-radius: 4px;
-                background: rgba(0,0,0,0.1);
+                background: var(--vscode-bg);
             }
             .chart-row {
                 display: flex;
@@ -244,7 +303,7 @@ export const tableStyles = `
             .chart-bar-area {
                 flex: 1;
                 height: 20px;
-                background: rgba(255, 255, 255, 0.05);
+                background: var(--hover-bg);
                 border-radius: 3px;
                 position: relative;
                 display: flex;

@@ -61,8 +61,9 @@ export const watchScripts = `
                 const tr = document.createElement('tr');
                 
                 const tdVar = document.createElement('td');
-                tdVar.style.display = 'flex';
-                tdVar.style.alignItems = 'center';
+                const varDiv = document.createElement('div');
+                varDiv.style.display = 'flex';
+                varDiv.style.alignItems = 'center';
 
                 const varSpan = document.createElement('span');
                 varSpan.contentEditable = 'true';
@@ -85,7 +86,8 @@ export const watchScripts = `
                         e.target.blur();
                     }
                 };
-                tdVar.appendChild(varSpan);
+                varDiv.appendChild(varSpan);
+                tdVar.appendChild(varDiv);
                 tr.appendChild(tdVar);
 
                 const tdVal = document.createElement('td');
@@ -118,10 +120,12 @@ export const watchScripts = `
 
                 const tdActions = document.createElement('td');
                 tdActions.style.padding = '2px';
-                tdActions.style.display = 'flex';
-                tdActions.style.justifyContent = 'center';
-                tdActions.style.alignItems = 'center';
-                tdActions.style.gap = '4px';
+                
+                const actionsDiv = document.createElement('div');
+                actionsDiv.style.display = 'flex';
+                actionsDiv.style.justifyContent = 'center';
+                actionsDiv.style.alignItems = 'center';
+                actionsDiv.style.gap = '4px';
 
                 if (item.isComplex) {
                     const btnTable = document.createElement('span');
@@ -129,7 +133,7 @@ export const watchScripts = `
                     btnTable.className = 'btn-action'; // reuse style
                     btnTable.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M14 3H2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1zM2 4h3v2H2V4zm4 0h3v2H6V4zm4 0h4v2h-4V4zM2 7h3v2H2V7zm4 0h3v2H6V7zm4 0h4v2h-4V7zM2 10h3v2H2v-2zm4 0h3v2H6v-2zm4 0h4v2h-4v-2z"/></svg>';
                     btnTable.onclick = () => vscode.postMessage({ command: 'viewAsTable', expression: item.expression });
-                    tdActions.appendChild(btnTable);
+                    actionsDiv.appendChild(btnTable);
                 }
 
                 const btnX = document.createElement('span');
@@ -137,7 +141,8 @@ export const watchScripts = `
                 btnX.className = 'btn-action danger';
                 btnX.innerHTML = '<svg fill="currentColor" width="14" height="14" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4L4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg>';
                 btnX.onclick = () => vscode.postMessage({ command: 'removeVariable', index });
-                tdActions.appendChild(btnX);
+                actionsDiv.appendChild(btnX);
+                tdActions.appendChild(actionsDiv);
                 tr.appendChild(tdActions);
 
                 watchBody.appendChild(tr);

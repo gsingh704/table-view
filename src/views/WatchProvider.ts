@@ -14,7 +14,6 @@ export class WatchProvider implements vscode.WebviewViewProvider {
 	public static readonly viewType = 'tableView.variablesView';
 	private _view?: vscode.WebviewView;
 	private expressions: string[] = [];
-	private _autoRefreshInterval?: NodeJS.Timeout;
 
 	constructor() {
 		vscode.debug.onDidChangeActiveDebugSession(() => {
@@ -33,21 +32,6 @@ export class WatchProvider implements vscode.WebviewViewProvider {
 			this.refresh();
 		});
 	}
-	private startAutoRefreshInterval() {
-		if (this._autoRefreshInterval) { return; }
-		this._autoRefreshInterval = setInterval(() => {
-			if (this._view) {
-				this.refresh();
-			}
-		}, 1000);
-	}
-
-	private stopAutoRefreshInterval() {
-		if (this._autoRefreshInterval) {
-			clearInterval(this._autoRefreshInterval);
-			this._autoRefreshInterval = undefined;
-		}
-	}
 
 	resolveWebviewView(webviewView: vscode.WebviewView) {
 		this._view = webviewView;
@@ -56,10 +40,7 @@ export class WatchProvider implements vscode.WebviewViewProvider {
 
 		webviewView.onDidDispose(() => {
 			this._view = undefined;
-			this.stopAutoRefreshInterval();
 		});
-
-		this.startAutoRefreshInterval();
 
 		webviewView.webview.onDidReceiveMessage(message => {
 			if (message.command === 'addVariable') {

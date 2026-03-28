@@ -6,37 +6,24 @@ import { extractTableData } from '../core/dataProcessor';
 export class TableViewProvider {
 	public static readonly viewType = 'tableView.bottomView';
 	private _panel?: vscode.WebviewPanel;
-	private _pendingData?: { data: any[], columns: string[], variableName: string };
+	private _pendingData?: { data: any[], columns: string[], variableName: string, variableRef?: number };
 	private _currentSession?: vscode.DebugSession;
 	private _currentRef?: number;
 	private _currentName?: string;
 	private _currentRootEvalName?: string;
 	private _autoRefreshTimer?: NodeJS.Timeout;
-	private _autoRefreshInterval?: NodeJS.Timeout;
+	private _disposables: vscode.Disposable[] = [];
+	private _onDispose?: () => void;
 
-	constructor() {
-		vscode.debug.onDidChangeActiveDebugSession(() => this.triggerAutoRefresh());
-		vscode.debug.onDidReceiveDebugSessionCustomEvent(() => this.triggerAutoRefresh());
-		vscode.debug.onDidTerminateDebugSession(() => this.triggerAutoRefresh());
-		vscode.debug.onDidStartDebugSession(() => this.triggerAutoRefresh());
-		vscode.debug.onDidChangeBreakpoints(() => this.triggerAutoRefresh());
+	constructor(onDispose?: () => void) {
+		this._onDispose = onDispose;
+		this._disposables.push(vscode.debug.onDidChangeActiveDebugSession(() => this.triggerAutoRefresh()));
+		this._disposables.push(vscode.debug.onDidReceiveDebugSessionCustomEvent(() => this.triggerAutoRefresh()));
+		this._disposables.push(vscode.debug.onDidTerminateDebugSession(() => this.triggerAutoRefresh()));
+		this._disposables.push(vscode.debug.onDidStartDebugSession(() => this.triggerAutoRefresh()));
+		this._disposables.push(vscode.debug.onDidChangeBreakpoints(() => this.triggerAutoRefresh()));
 	}
 
-	private startAutoRefreshInterval() {
-		if (this._autoRefreshInterval) { return; }
-		this._autoRefreshInterval = setInterval(() => {
-			if (this._panel && this._currentSession && this._currentRef) {
-				this.refresh();
-			}
-		}, 1000);
-	}
-
-	private stopAutoRefreshInterval() {
-		if (this._autoRefreshInterval) {
-			clearInterval(this._autoRefreshInterval);
-			this._autoRefreshInterval = undefined;
-		}
-	}
 
 	private triggerAutoRefresh() {
 		if (!this._panel || !this._currentSession || !this._currentRef) {
@@ -52,13 +39,13 @@ export class TableViewProvider {
 		}, 150);
 	}
 
-	public show() {
+	public show(initialName?: string) {
 		if (this._panel) {
 			this._panel.reveal(vscode.ViewColumn.Active);
 		} else {
 			this._panel = vscode.window.createWebviewPanel(
 				'tableViewEditor',
-				`Table: ${this._currentName || 'Data'}`,
+				`Table: ${initialName || this._currentName || 'Data'}`,
 				vscode.ViewColumn.Active,
 				{ enableScripts: true, retainContextWhenHidden: true }
 			);
@@ -67,9 +54,12 @@ export class TableViewProvider {
 			this._panel.webview.onDidReceiveMessage(message => this.handleMessage(message));
 			this._panel.onDidDispose(() => {
 				this._panel = undefined;
-				this.stopAutoRefreshInterval();
+				this._disposables.forEach(d => d.dispose());
+				this._disposables = [];
+				if (this._onDispose) {
+					this._onDispose();
+				}
 			});
-			this.startAutoRefreshInterval();
 		}
 
 		if (this._pendingData) {
@@ -78,7 +68,7 @@ export class TableViewProvider {
 				this._pendingData.columns,
 				this._pendingData.variableName,
 				this._currentSession,
-				this._currentRef,
+				this._pendingData.variableRef || this._currentRef,
 				this._currentRootEvalName
 			);
 			this._pendingData = undefined;
@@ -143,9 +133,9 @@ export class TableViewProvider {
 
 		if (this._panel) {
 			this._panel.title = `Table: ${variableName}`;
-			this._panel.webview.postMessage({ type: 'update', data, columns, variableName, isEditorPanel: true });
+			this._panel.webview.postMessage({ type: 'update', data, columns, variableName, variableRef: ref, isEditorPanel: true });
 		} else {
-			this._pendingData = { data, columns, variableName };
+			this._pendingData = { data, columns, variableName, variableRef: ref };
 		}
 	}
 
@@ -277,23 +267,28 @@ export class TableViewProvider {
 		return this._currentRef;
 	}
 
+	private _isRefreshing = false;
+
 	public async refresh() {
-		if (!this._panel || !this._currentSession || !this._currentName) {
+		if (this._isRefreshing || !this._panel || !this._currentSession || !this._currentName) {
 			return;
 		}
 
-		const currentRef = await this.resolveCurrentReference();
-		if (!currentRef) {
-			return;
-		}
-
+		this._isRefreshing = true;
 		try {
+			const currentRef = await this.resolveCurrentReference();
+			if (!currentRef) {
+				return;
+			}
+
 			const { tableData, allColumns } = await extractTableData(this._currentSession!, currentRef);
 			if (this._panel) {
-				this._panel.webview.postMessage({ type: 'update', data: tableData, columns: Array.from(allColumns), variableName: this._currentName, isEditorPanel: true });
+				this._panel.webview.postMessage({ type: 'update', data: tableData, columns: Array.from(allColumns), variableName: this._currentName, variableRef: currentRef, isEditorPanel: true });
 			}
 		} catch (e) {
 			console.error(`Failed to refresh table for ${this._currentName}:`, e);
+		} finally {
+			this._isRefreshing = false;
 		}
 	}
 }

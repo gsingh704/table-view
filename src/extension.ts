@@ -24,23 +24,22 @@ async function evaluateAndShowTable(session: vscode.DebugSession, expression: st
 			}, async () => {
 				const { tableData, allColumns } = await extractTableData(session, response.variablesReference);
 				provider.update(tableData, Array.from(allColumns), expression, session, response.variablesReference, response.evaluateName || expression);
-				provider.show();
 			});
+		} else {
+			vscode.window.showErrorMessage(`Cannot view primitive value as table: ${expression}`);
 		}
 	} catch (e) {
-		// Silently ignore evaluation errors since user might just be selecting text
+		vscode.window.showErrorMessage(`Failed to evaluate expression: ${expression}`);
 	}
 }
-
-
 
 // This method is called when your extension is activated
 export function activate(context: vscode.ExtensionContext) {
 	console.log('Congratulations, your extension "table-view" is now active!');
 
-	const provider = new TableViewProvider();
-
 	const watchProvider = new WatchProvider();
+	const openProviders = new Map<string, TableViewProvider>();
+
 	context.subscriptions.push(
 		vscode.window.registerWebviewViewProvider(WatchProvider.viewType, watchProvider, {
 			webviewOptions: { retainContextWhenHidden: true }
@@ -137,13 +136,24 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 
 		if (typeof contextVariable === 'string') {
-			vscode.window.withProgress({
-				location: vscode.ProgressLocation.Notification,
-				title: `Extracting table data for ${contextVariable}...`,
-				cancellable: false
-			}, async () => {
-				await evaluateAndShowTable(session, contextVariable, provider);
-			});
+			let provider = openProviders.get(contextVariable);
+			let isNew = false;
+			if (!provider) {
+				provider = new TableViewProvider(() => openProviders.delete(contextVariable));
+				openProviders.set(contextVariable, provider);
+				isNew = true;
+			}
+
+			provider.show(contextVariable);
+			if (isNew) {
+				vscode.window.withProgress({
+					location: vscode.ProgressLocation.Notification,
+					title: `Extracting table data for ${contextVariable}...`,
+					cancellable: false
+				}, async () => {
+					await evaluateAndShowTable(session, contextVariable, provider!);
+				});
+			}
 			return;
 		}
 
@@ -163,15 +173,27 @@ export function activate(context: vscode.ExtensionContext) {
 			return;
 		}
 
-		vscode.window.withProgress({
-			location: vscode.ProgressLocation.Notification,
-			title: `Extracting table data for ${name}...`,
-			cancellable: false
-		}, async (progress) => {
-			const { tableData, allColumns } = await extractTableData(session, ref);
-			provider.update(tableData, Array.from(allColumns), name, session, ref, rootEvalName);
-			provider.show();
-		});
+		let provider = openProviders.get(name);
+		let isNew = false;
+		if (!provider) {
+			provider = new TableViewProvider(() => openProviders.delete(name));
+			openProviders.set(name, provider);
+			isNew = true;
+		}
+
+		provider.show(name);
+
+		if (isNew) {
+			provider.update([], [], name, session, ref, rootEvalName);
+			vscode.window.withProgress({
+				location: vscode.ProgressLocation.Notification,
+				title: `Extracting table data for ${name}...`,
+				cancellable: false
+			}, async (progress) => {
+				const { tableData, allColumns } = await extractTableData(session, ref);
+				provider!.update(tableData, Array.from(allColumns), name, session, ref, rootEvalName);
+			});
+		}
 	});
 
 	context.subscriptions.push(disposableHelloWorld, disposableTableView);

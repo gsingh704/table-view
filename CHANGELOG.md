@@ -1,5 +1,10 @@
 # Change Log
 
+## [0.0.6] - 2026-03-28
+
+- Sort and Filter
+- Visual fixes
+
 ## [0.0.5] - 2026-03-27
 
 - Bugfix: preserve row checkbox selection across auto-refresh

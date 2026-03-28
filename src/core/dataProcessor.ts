@@ -11,37 +11,53 @@ export async function extractTableData(session: vscode.DebugSession, ref: number
 	const startIndexAt1 = config.get<boolean>('startIndexAt1', false);
 	const startIndexOffset = startIndexAt1 ? 1 : 0;
 
-	for (const row of rows) {
-		if (isSystemMetadata(row.name) || isFunction(row)) { continue; }
+	const MAX_ROWS = 2000;
+	let processedRows = rows;
+	if (rows.length > MAX_ROWS) {
+		processedRows = rows.slice(0, MAX_ROWS);
+	}
 
-		let displayIndex = row.name;
-		if (startIndexOffset !== 0 && !isNaN(Number(row.name))) {
-			displayIndex = (Number(row.name) + startIndexOffset).toString();
-		}
+	const BATCH_SIZE = 50;
+	for (let i = 0; i < processedRows.length; i += BATCH_SIZE) {
+		const batch = processedRows.slice(i, i + BATCH_SIZE);
+		const batchResults = await Promise.all(batch.map(async (row) => {
+			if (isSystemMetadata(row.name) || isFunction(row)) { return null; }
 
-		if (row.variablesReference > 0) {
-			const cells = await fetchVariables(session, row.variablesReference);
-			const rowData: any = {
-				'(index)': displayIndex,
-				'_row_ref': row.variablesReference,
-				'_row_eval': row.evaluateName
-			};
-			for (const cell of cells) {
-				if (isSystemMetadata(cell.name) || isFunction(cell)) { continue; }
-				rowData[cell.name] = stripQuotes(cell.value);
-				rowData[`_ref_${cell.name}`] = row.variablesReference;
-				rowData[`_name_${cell.name}`] = cell.name;
-				allColumns.add(cell.name);
+			let displayIndex = row.name;
+			if (startIndexOffset !== 0 && !isNaN(Number(row.name))) {
+				displayIndex = (Number(row.name) + startIndexOffset).toString();
 			}
-			tableData.push(rowData);
-		} else {
-			tableData.push({
-				'(index)': displayIndex,
-				value: stripQuotes(row.value),
-				'_ref_value': ref,
-				'_name_value': row.name
-			});
-			allColumns.add('value');
+
+			if (row.variablesReference > 0) {
+				const cells = await fetchVariables(session, row.variablesReference);
+				const rowData: any = {
+					'(index)': displayIndex,
+					'_row_ref': row.variablesReference,
+					'_row_eval': row.evaluateName
+				};
+				for (const cell of cells) {
+					if (isSystemMetadata(cell.name) || isFunction(cell)) { continue; }
+					rowData[cell.name] = stripQuotes(cell.value);
+					rowData[`_ref_${cell.name}`] = row.variablesReference;
+					rowData[`_name_${cell.name}`] = cell.name;
+					allColumns.add(cell.name);
+				}
+				return rowData;
+			} else {
+				allColumns.add('value');
+				return {
+					'(index)': displayIndex,
+					value: stripQuotes(row.value),
+					'_ref_value': ref,
+					'_name_value': row.name
+				};
+			}
+		}));
+
+		for (const res of batchResults) {
+			if (res) {
+				tableData.push(res);
+			}
 		}
 	}
 	return { tableData, allColumns };
