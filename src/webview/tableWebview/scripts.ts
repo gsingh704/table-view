@@ -12,14 +12,26 @@ export const tableScripts = `
             let currentVariableRef = -1;
             let userHiddenColumns = new Set();
             
+            
             let currentPage = 1;
             let rowsPerPage = 100;
             let totalFilteredRows = 0;
+            let filteredSortedData = [];
             
             let isChartView = false;
             let selectedRowIndexes = new Set();
             let selectAllChecked = false;
             
+            function escapeHtml(unsafe) {
+                if (unsafe === null || unsafe === undefined) return '';
+                return String(unsafe)
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            }
+
             const filterBtn = document.getElementById('filterBtn');
             const filterDropdown = document.getElementById('filterDropdown');
             const filterRulesContainer = document.getElementById('filterRules');
@@ -154,6 +166,7 @@ export const tableScripts = `
                         }
                         
                         renderDropdown();
+                        updateFilteredSortedData();
                         renderTable();
                         break;
                 }
@@ -432,6 +445,8 @@ export const tableScripts = `
                     sortBtn.classList.remove('active');
                 }
 
+                updateFilteredSortedData();
+
                 if (isChartView) renderChart();
                 else renderBody();
             }
@@ -498,7 +513,7 @@ export const tableScripts = `
                             visibleColumns = visibleColumns.filter(c => c !== col);
                             userHiddenColumns.add(col);
                         }
-                        visibleColumns.sort((a,b) => allColumns.indexOf(a) - allColumns.indexOf(b));
+                        // Removed automatic sorting to allow user-defined column order
                         
                         const selectAllChk = document.getElementById('col-select-all');
                         if (selectAllChk) {
@@ -528,6 +543,7 @@ export const tableScripts = `
             let isResizing = false;
             let currentTh = null;
             let startX, startWidth;
+            let draggedColIndex = -1;
 
             document.addEventListener('mousemove', (e) => {
                 if (!isResizing || !currentTh) return;
@@ -579,6 +595,73 @@ export const tableScripts = `
                     th.innerText = col;
                     th.dataset.col = col;
                     th.dataset.colIndex = idx;
+                    th.draggable = true;
+
+                    th.addEventListener('dragstart', (e) => {
+                        if (isResizing) {
+                            e.preventDefault();
+                            return;
+                        }
+                        draggedColIndex = idx;
+                        th.classList.add('dragging');
+                        e.dataTransfer.effectAllowed = 'move';
+                    });
+
+                    th.addEventListener('dragover', (e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                        if (draggedColIndex === -1 || draggedColIndex === idx) return;
+                        
+                        const rect = th.getBoundingClientRect();
+                        const midX = rect.left + rect.width / 2;
+                        if (e.clientX < midX) {
+                            th.classList.add('drag-over');
+                            th.classList.remove('drag-over-right');
+                        } else {
+                            th.classList.add('drag-over-right');
+                            th.classList.remove('drag-over');
+                        }
+                    });
+
+                    th.addEventListener('dragleave', () => {
+                        th.classList.remove('drag-over');
+                        th.classList.remove('drag-over-right');
+                    });
+
+                    th.addEventListener('dragend', () => {
+                        th.classList.remove('dragging');
+                        draggedColIndex = -1;
+                        document.querySelectorAll('th').forEach(el => {
+                            el.classList.remove('drag-over');
+                            el.classList.remove('drag-over-right');
+                        });
+                    });
+
+                    th.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        th.classList.remove('drag-over');
+                        th.classList.remove('drag-over-right');
+                        if (draggedColIndex === -1 || draggedColIndex === idx) return;
+
+                        const rect = th.getBoundingClientRect();
+                        const midX = rect.left + rect.width / 2;
+                        let targetIdx = idx;
+                        
+                        // If dropped on the right half, we want to place it AFTER this column
+                        if (e.clientX >= midX) {
+                            targetIdx++;
+                        }
+                        
+                        // Adjust targetIdx if dragging from left to right
+                        const finalIdx = draggedColIndex < targetIdx ? targetIdx - 1 : targetIdx;
+
+                        if (finalIdx === draggedColIndex) return;
+
+                        const colToMove = visibleColumns.splice(draggedColIndex, 1)[0];
+                        visibleColumns.splice(finalIdx, 0, colToMove);
+                        
+                        renderTable();
+                    });
                     
                     const resizer = document.createElement('div');
                     resizer.className = 'resizer';
@@ -598,38 +681,71 @@ export const tableScripts = `
                 renderBody();
             }
 
-            function renderBody() {
-                tableBody.innerHTML = '';
-                let filteredData = rawData.filter(row => {
-                    return advancedFilters.every(rule => {
-                        if (!rule.value) return true;
-                        const cellVal = row[rule.column];
-                        let cellStr = String(cellVal === undefined ? '' : cellVal).toLowerCase();
-                        let valStr = String(rule.value).toLowerCase();
-                        
-                        switch (rule.operator) {
-                            case 'contains': return cellStr.includes(valStr);
-                            case 'equals': return cellStr === valStr;
-                            case 'not_equals': return cellStr !== valStr;
-                            case 'greater_than': {
-                                const numC_gt = Number(cellVal);
-                                const numV_gt = Number(rule.value);
-                                if (!isNaN(numC_gt) && !isNaN(numV_gt)) return numC_gt > numV_gt;
-                                return cellStr > valStr;
-                            }
-                            case 'less_than': {
-                                const numC_lt = Number(cellVal);
-                                const numV_lt = Number(rule.value);
-                                if (!isNaN(numC_lt) && !isNaN(numV_lt)) return numC_lt < numV_lt;
-                                return cellStr < valStr;
-                            }
-                            default: return true;
+            document.addEventListener('focusout', (e) => {
+                if (e.target.tagName === 'TD' && e.target.isContentEditable) {
+                    const td = e.target;
+                    const newVal = td.innerText;
+                    const col = td.dataset.col;
+                    const pIndex = td.dataset.pIndex;
+                    if (pIndex !== undefined && window.paginatedDataCache) {
+                        const row = window.paginatedDataCache[pIndex];
+                        if (row && newVal !== String(row[col] || '')) {
+                            row[col] = newVal;
+                            vscode.postMessage({
+                                command: 'updateVariable',
+                                ref: row['_ref_' + col] !== undefined ? row['_ref_' + col] : row['_row_ref'],
+                                name: row['_name_' + col] !== undefined ? row['_name_' + col] : col,
+                                evalName: row['_row_eval'],
+                                value: newVal
+                            });
                         }
+                    }
+                }
+            });
+
+            document.addEventListener('keydown', (e) => {
+                if (e.target.tagName === 'TD' && e.target.isContentEditable && e.key === 'Enter') {
+                    e.preventDefault();
+                    e.target.blur();
+                }
+            });
+
+            function updateFilteredSortedData() {
+                let data = rawData;
+                if (advancedFilters.length > 0) {
+                    data = data.filter(row => {
+                        return advancedFilters.every(rule => {
+                            if (!rule.value) return true;
+                            const cellVal = row[rule.column];
+                            let cellStr = String(cellVal === undefined ? '' : cellVal).toLowerCase();
+                            let valStr = String(rule.value).toLowerCase();
+                            
+                            switch (rule.operator) {
+                                case 'contains': return cellStr.includes(valStr);
+                                case 'equals': return cellStr === valStr;
+                                case 'not_equals': return cellStr !== valStr;
+                                case 'greater_than': {
+                                    const numC_gt = Number(cellVal);
+                                    const numV_gt = Number(rule.value);
+                                    if (!isNaN(numC_gt) && !isNaN(numV_gt)) return numC_gt > numV_gt;
+                                    return cellStr > valStr;
+                                }
+                                case 'less_than': {
+                                    const numC_lt = Number(cellVal);
+                                    const numV_lt = Number(rule.value);
+                                    if (!isNaN(numC_lt) && !isNaN(numV_lt)) return numC_lt < numV_lt;
+                                    return cellStr < valStr;
+                                }
+                                default: return true;
+                            }
+                        });
                     });
-                });
+                } else if (advancedSorts.length > 0) {
+                    data = [...data];
+                }
 
                 if (advancedSorts.length > 0) {
-                    filteredData.sort((a, b) => {
+                    data.sort((a, b) => {
                         for (let rule of advancedSorts) {
                             let valA = a[rule.column];
                             let valB = b[rule.column];
@@ -652,14 +768,19 @@ export const tableScripts = `
                     });
                 }
                 
-                totalFilteredRows = filteredData.length;
+                filteredSortedData = data;
+                totalFilteredRows = filteredSortedData.length;
+            }
+
+            function renderBody() {
                 const totalPages = Math.ceil(totalFilteredRows / rowsPerPage) || 1;
                 if (currentPage > totalPages) currentPage = totalPages;
                 
                 pageInfo.innerText = "Page " + currentPage + " of " + totalPages + " (" + totalFilteredRows + " items)";
                 
                 const startIndex = (currentPage - 1) * rowsPerPage;
-                const paginatedData = filteredData.slice(startIndex, startIndex + rowsPerPage);
+                const paginatedData = filteredSortedData.slice(startIndex, startIndex + rowsPerPage);
+                window.paginatedDataCache = paginatedData;
                 
                 prevPageBtn.style.display = 'inline-block';
                 nextPageBtn.style.display = 'inline-block';
@@ -668,103 +789,37 @@ export const tableScripts = `
                 prevPageBtn.style.opacity = currentPage === 1 ? '0.5' : '1';
                 nextPageBtn.style.opacity = currentPage === totalPages ? '0.5' : '1';
 
-                paginatedData.forEach(row => {
-                    const tr = document.createElement('tr');
+                const safeVisibleColumns = visibleColumns.map(col => escapeHtml(col).replace(/"/g, '&quot;'));
+
+                let html = '';
+                paginatedData.forEach((row, pIndex) => {
+                    html += '<tr>';
                     
                     // Checkbox
-                    const checkTd = document.createElement('td');
-                    checkTd.style.textAlign = 'center';
-                    const checkbox = document.createElement('input');
-                    checkbox.type = 'checkbox';
-                    checkbox.className = 'row-checkbox';
-                    checkbox.value = String(row['(index)']);
-                    checkbox.checked = selectAllChecked || selectedRowIndexes.has(checkbox.value);
-                    checkbox.addEventListener('change', (e) => {
-                        if (e.target.checked) {
-                            selectedRowIndexes.add(checkbox.value);
-                        } else {
-                            selectedRowIndexes.delete(checkbox.value);
-                            selectAllChecked = false;
-                            const selectAll = document.getElementById('selectAll');
-                            if (selectAll) selectAll.checked = false;
-                        }
-                    });
-                    checkTd.appendChild(checkbox);
-                    tr.appendChild(checkTd);
-
+                    const isChecked = selectAllChecked || selectedRowIndexes.has(String(row['(index)']));
+                    html += '<td style="text-align: center;"><input type="checkbox" class="row-checkbox" value="' + escapeHtml(row['(index)']) + '" ' + (isChecked ? 'checked' : '') + '></td>';
+                    
                     // Index
-                    const indexTd = document.createElement('td');
-                    indexTd.innerText = row['(index)'];
-                    indexTd.style.textAlign = 'right';
-                    indexTd.style.color = '#888';
-                    indexTd.style.fontFamily = 'monospace';
-                    tr.appendChild(indexTd);
+                    html += '<td style="text-align: right; color: #888; font-family: monospace;">' + escapeHtml(row['(index)']) + '</td>';
                     
                     // Cells
                     visibleColumns.forEach((col, idx) => {
-                        const td = document.createElement('td');
-                        td.innerText = row[col] === undefined ? '' : row[col];
-                        td.title = row[col];
-                        td.dataset.col = col;
-                        td.dataset.colIndex = idx;
-                        
-                        td.contentEditable = "true";
-                        td.addEventListener('blur', (e) => {
-                            const newVal = e.target.innerText;
-                            if (newVal !== String(row[col] || '')) {
-                                row[col] = newVal;
-                                vscode.postMessage({
-                                    command: 'updateVariable',
-                                    ref: row['_ref_' + col] !== undefined ? row['_ref_' + col] : row['_row_ref'],
-                                    name: row['_name_' + col] !== undefined ? row['_name_' + col] : col,
-                                    evalName: row['_row_eval'],
-                                    value: newVal
-                                });
-                            }
-                        });
-                        td.addEventListener('keydown', (e) => {
-                            if (e.key === 'Enter') {
-                                e.preventDefault();
-                                e.target.blur();
-                            }
-                        });
-                        tr.appendChild(td);
+                        const val = row[col] === undefined ? '' : row[col];
+                        const cellHtml = escapeHtml(String(val));
+                        // Replace double quotes in attribute to prevent breaking the HTML tag
+                        const safeAttrCellHtml = cellHtml.replace(/"/g, '&quot;');
+                        html += '<td contenteditable="true" title="' + safeAttrCellHtml + '" data-col="' + safeVisibleColumns[idx] + '" data-col-index="' + idx + '" data-p-index="' + pIndex + '">' + cellHtml + '</td>';
                     });
                     
-                    tableBody.appendChild(tr);
+                    html += '</tr>';
                 });
+                tableBody.innerHTML = html;
             }
 
             function renderChart() {
                 chartContainer.innerHTML = '';
                 
-                let filteredData = rawData.filter(row => {
-                    return advancedFilters.every(rule => {
-                        if (!rule.value) return true;
-                        const cellVal = row[rule.column];
-                        let cellStr = String(cellVal === undefined ? '' : cellVal).toLowerCase();
-                        let valStr = String(rule.value).toLowerCase();
-                        
-                        switch (rule.operator) {
-                            case 'contains': return cellStr.includes(valStr);
-                            case 'equals': return cellStr === valStr;
-                            case 'not_equals': return cellStr !== valStr;
-                            case 'greater_than': {
-                                const numC_gt = Number(cellVal);
-                                const numV_gt = Number(rule.value);
-                                if (!isNaN(numC_gt) && !isNaN(numV_gt)) return numC_gt > numV_gt;
-                                return cellStr > valStr;
-                            }
-                            case 'less_than': {
-                                const numC_lt = Number(cellVal);
-                                const numV_lt = Number(rule.value);
-                                if (!isNaN(numC_lt) && !isNaN(numV_lt)) return numC_lt < numV_lt;
-                                return cellStr < valStr;
-                            }
-                            default: return true;
-                        }
-                    });
-                });
+                let filteredData = filteredSortedData;
 
                 if (filteredData.length === 0) {
                     chartContainer.innerHTML = '<div style="opacity: 0.5;">No data matches filters.</div>';
@@ -794,30 +849,6 @@ export const tableScripts = `
                 const firstCol = visibleColumns[0];
                 if (firstCol !== '(index)' && firstCol !== yCol) {
                     xCol = firstCol;
-                }
-
-                if (advancedSorts.length > 0) {
-                    filteredData.sort((a, b) => {
-                        for (let rule of advancedSorts) {
-                            let valA = a[rule.column];
-                            let valB = b[rule.column];
-                            if (valA === undefined) valA = '';
-                            if (valB === undefined) valB = '';
-                            
-                            const numA = Number(valA);
-                            const numB = Number(valB);
-                            
-                            if (!isNaN(numA) && !isNaN(numB) && valA !== '' && valB !== '') {
-                                if (numA !== numB) return rule.order === 'asc' ? numA - numB : numB - numA;
-                            } else {
-                                const strA = String(valA).toLowerCase();
-                                const strB = String(valB).toLowerCase();
-                                if (strA < strB) return rule.order === 'asc' ? -1 : 1;
-                                if (strA > strB) return rule.order === 'asc' ? 1 : -1;
-                            }
-                        }
-                        return 0;
-                    });
                 }
 
                 const yValues = filteredData.map(r => parseFloat(r[yCol]) || 0);

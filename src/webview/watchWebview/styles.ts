@@ -13,6 +13,9 @@ export const watchStyles = `
             padding: 5px;
             text-align: left;
             position: relative;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         tr:last-child th, tr:last-child td {
             border-bottom: none;

@@ -55,97 +55,96 @@ export const watchScripts = `
         // Add a refresh button at the top right of the view if needed, but for now just auto-refresh via VS Code commands.
         // Or send a refresh message when focusing.
 
+        function escapeHtml(unsafe) {
+            if (unsafe === null || unsafe === undefined) return '';
+            return String(unsafe)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        document.addEventListener('blur', (e) => {
+            const target = e.target;
+            if (target.classList.contains('watch-expr')) {
+                const newExpr = target.textContent.trim();
+                const index = target.closest('tr').getAttribute('data-index');
+                const item = watchData[index];
+                if (newExpr && newExpr !== item.expression) {
+                    vscode.postMessage({ command: 'renameVariable', oldExpression: item.expression, newExpression: newExpr });
+                } else if (newExpr === '') {
+                    target.textContent = item.expression;
+                }
+            } else if (target.classList.contains('watch-val')) {
+                const index = target.closest('tr').getAttribute('data-index');
+                const item = watchData[index];
+                vscode.postMessage({ command: 'updateVariable', expression: item.expression, value: target.textContent });
+            }
+        }, true);
+        
+        document.addEventListener('keydown', (e) => {
+            const target = e.target;
+            if (e.key === 'Enter' && (target.classList.contains('watch-expr') || target.classList.contains('watch-val'))) {
+                e.preventDefault();
+                target.blur();
+            }
+        });
+        
+        document.addEventListener('dblclick', (e) => {
+            const target = e.target.closest('.watch-val-complex');
+            if (target) {
+                const index = target.closest('tr').getAttribute('data-index');
+                const item = watchData[index];
+                vscode.postMessage({ command: 'viewAsTable', expression: item.expression });
+            }
+        });
+        
+        document.addEventListener('click', (e) => {
+            const btnTable = e.target.closest('.btn-table');
+            if (btnTable) {
+                const index = btnTable.closest('tr').getAttribute('data-index');
+                const item = watchData[index];
+                vscode.postMessage({ command: 'viewAsTable', expression: item.expression });
+                return;
+            }
+            const btnRemove = e.target.closest('.btn-remove');
+            if (btnRemove) {
+                const index = parseInt(btnRemove.closest('tr').getAttribute('data-index'), 10);
+                vscode.postMessage({ command: 'removeVariable', index });
+            }
+        });
+
         function renderTable() {
-            watchBody.innerHTML = '';
+            let html = '';
             watchData.forEach((item, index) => {
-                const tr = document.createElement('tr');
+                html += '<tr data-index="' + index + '">';
                 
-                const tdVar = document.createElement('td');
-                const varDiv = document.createElement('div');
-                varDiv.style.display = 'flex';
-                varDiv.style.alignItems = 'center';
-
-                const varSpan = document.createElement('span');
-                varSpan.contentEditable = 'true';
-                varSpan.style.flex = '1';
-                varSpan.style.marginRight = '5px';
-                varSpan.style.outline = 'none';
-                varSpan.textContent = item.expression;
-                varSpan.style.wordBreak = 'break-all';
-                varSpan.onblur = (e) => {
-                    const newExpr = e.target.textContent.trim();
-                    if (newExpr && newExpr !== item.expression) {
-                        vscode.postMessage({ command: 'renameVariable', oldExpression: item.expression, newExpression: newExpr });
-                    } else if (newExpr === '') {
-                        e.target.textContent = item.expression;
-                    }
-                };
-                varSpan.onkeydown = (e) => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        e.target.blur();
-                    }
-                };
-                varDiv.appendChild(varSpan);
-                tdVar.appendChild(varDiv);
-                tr.appendChild(tdVar);
-
-                const tdVal = document.createElement('td');
+                // Expresion cell
+                html += '<td><div style="display: flex; align-items: center;">';
+                html += '<span class="watch-expr" contenteditable="true" style="flex: 1; margin-right: 5px; outline: none; word-break: break-all;">' + escapeHtml(item.expression) + '</span>';
+                html += '</div></td>';
+                
+                // Value cell
+                html += '<td>';
                 if (item.error) {
-                    tdVal.textContent = item.error;
-                    tdVal.style.color = 'var(--vscode-errorForeground)';
+                    html += '<span style="color: var(--vscode-errorForeground);">' + escapeHtml(item.error) + '</span>';
                 } else if (!item.isComplex) {
-                    tdVal.contentEditable = 'true';
-                    tdVal.style.outline = 'none';
-                    tdVal.textContent = item.value;
-                    tdVal.style.wordBreak = 'break-all';
-                    tdVal.onblur = (e) => {
-                        vscode.postMessage({ command: 'updateVariable', expression: item.expression, value: e.target.textContent });
-                    };
-                    tdVal.onkeydown = (e) => {
-                        if (e.key === 'Enter') {
-                            e.preventDefault();
-                            e.target.blur();
-                        }
-                    };
+                    html += '<span class="watch-val" contenteditable="true" style="outline: none; word-break: break-all;">' + escapeHtml(item.value) + '</span>';
                 } else {
-                    tdVal.textContent = item.value; // typically Object or Array representation
-                    tdVal.style.cursor = 'pointer';
-                    tdVal.title = 'Double click to view as table';
-                    tdVal.ondblclick = () => {
-                        vscode.postMessage({ command: 'viewAsTable', expression: item.expression });
-                    };
+                    html += '<span class="watch-val-complex" style="cursor: pointer;" title="Double click to view as table">' + escapeHtml(item.value) + '</span>';
                 }
-                tr.appendChild(tdVal);
-
-                const tdActions = document.createElement('td');
-                tdActions.style.padding = '2px';
+                html += '</td>';
                 
-                const actionsDiv = document.createElement('div');
-                actionsDiv.style.display = 'flex';
-                actionsDiv.style.justifyContent = 'center';
-                actionsDiv.style.alignItems = 'center';
-                actionsDiv.style.gap = '4px';
-
+                // Actions cell
+                html += '<td style="padding: 2px;">';
+                html += '<div style="display: flex; justify-content: center; align-items: center; gap: 4px;">';
                 if (item.isComplex) {
-                    const btnTable = document.createElement('span');
-                    btnTable.title = 'Show as Table';
-                    btnTable.className = 'btn-action'; // reuse style
-                    btnTable.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M14 3H2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1zM2 4h3v2H2V4zm4 0h3v2H6V4zm4 0h4v2h-4V4zM2 7h3v2H2V7zm4 0h3v2H6V7zm4 0h4v2h-4V7zM2 10h3v2H2v-2zm4 0h3v2H6v-2zm4 0h4v2h-4v-2z"/></svg>';
-                    btnTable.onclick = () => vscode.postMessage({ command: 'viewAsTable', expression: item.expression });
-                    actionsDiv.appendChild(btnTable);
+                    html += '<span class="btn-action btn-table" title="Show as Table"><svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M14 3H2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1zM2 4h3v2H2V4zm4 0h3v2H6V4zm4 0h4v2h-4V4zM2 7h3v2H2V7zm4 0h3v2H6V7zm4 0h4v2h-4V7zM2 10h3v2H2v-2zm4 0h3v2H6v-2zm4 0h4v2h-4v-2z"/></svg></span>';
                 }
-
-                const btnX = document.createElement('span');
-                btnX.title = 'Remove Variable';
-                btnX.className = 'btn-action danger';
-                btnX.innerHTML = '<svg fill="currentColor" width="14" height="14" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4L4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg>';
-                btnX.onclick = () => vscode.postMessage({ command: 'removeVariable', index });
-                actionsDiv.appendChild(btnX);
-                tdActions.appendChild(actionsDiv);
-                tr.appendChild(tdActions);
-
-                watchBody.appendChild(tr);
+                html += '<span class="btn-action danger btn-remove" title="Remove Variable"><svg fill="currentColor" width="14" height="14" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4L4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg></span>';
+                html += '</div></td></tr>';
             });
+            watchBody.innerHTML = html;
         }
     `;

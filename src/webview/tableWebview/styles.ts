@@ -207,11 +207,26 @@ export const tableStyles = `
                 /* removed right border override */
             }
             th {
-                background: var(--vscode-editor-background);
+                background: var(--vscode-sideBar-background, var(--vscode-editor-background));
                 position: sticky;
                 top: 0;
                 z-index: 10;
                 font-weight: 600;
+                cursor: grab;
+                user-select: none;
+            }
+            th:active {
+                cursor: grabbing;
+            }
+            th.dragging {
+                opacity: 0.4;
+                border: 1px dashed var(--vscode-focusBorder) !important;
+            }
+            th.drag-over {
+                border-left: 3px solid var(--vscode-focusBorder) !important;
+            }
+            th.drag-over-right {
+                border-right: 3px solid var(--vscode-focusBorder) !important;
             }
             .filter-row {
                 display: none;
