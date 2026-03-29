@@ -1,5 +1,10 @@
 # Change Log
 
+## [0.0.8] - 2026-03-30
+
+- Added save variables functionality 
+- Hide when not in debug mode
+
 ## [0.0.7] - 2026-03-29
 
 - Fix [Issue 1: Data refresh in Watch View](https://github.com/gsingh704/table-view/issues/1)

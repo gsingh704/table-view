@@ -56,6 +56,11 @@
         "icon": "$(trash)"
       },
       {
+        "command": "tableView.saveVariables",
+        "title": "Save Variables",
+        "icon": "$(save)"
+      },
+      {
         "command": "tableView.openSettings",
         "title": "Open Settings",
         "icon": "$(settings-gear)"
@@ -69,9 +74,14 @@
           "group": "navigation@1"
         },
         {
-          "command": "tableView.clearVariables",
+          "command": "tableView.saveVariables",
           "when": "view == tableView.variablesView",
           "group": "navigation@2"
+        },
+        {
+          "command": "tableView.clearVariables",
+          "when": "view == tableView.variablesView",
+          "group": "navigation@3"
         }
       ],
       "debug/variables/context": [
@@ -88,6 +98,7 @@
           "id": "tableView.variablesView",
           "name": "Variables",
           "icon": "$(eye)",
+          "when": "inDebugMode",
           "weight": 100
         }
       ]
@@ -99,6 +110,12 @@
           "type": "number",
           "default": 100,
           "description": "Number of rows to fetch per chunk when streaming table data."
+        },
+        "tableView.saveVariablesScope": {
+          "type": "string",
+          "enum": ["workspace", "global"],
+          "default": "workspace",
+          "description": "Scope to save watch variables in. 'workspace' will save variables per workspace, 'global' will save them globally."
         }
       }
     }

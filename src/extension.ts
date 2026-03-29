@@ -47,7 +47,7 @@ async function evaluateAndShowTable(session: vscode.DebugSession, expression: st
 export function activate(context: vscode.ExtensionContext) {
 	console.log('Congratulations, your extension "table-view" is now active!');
 
-	const watchProvider = new WatchProvider();
+	const watchProvider = new WatchProvider(context);
 	const openProviders = new Map<string, TableViewProvider>();
 
 	context.subscriptions.push(
@@ -60,11 +60,15 @@ export function activate(context: vscode.ExtensionContext) {
 		watchProvider.clearVariables();
 	});
 
+	const disposableSaveVariables = vscode.commands.registerCommand('tableView.saveVariables', () => {
+		watchProvider.saveVariables();
+	});
+
 	const disposableOpenSettings = vscode.commands.registerCommand('tableView.openSettings', () => {
 		vscode.commands.executeCommand('workbench.action.openSettings', 'tableView');
 	});
 
-	context.subscriptions.push(disposableClearVariables, disposableOpenSettings);
+	context.subscriptions.push(disposableClearVariables, disposableSaveVariables, disposableOpenSettings);
 
 	let lastClickTime = 0;
 	let lastClickPosition: vscode.Position | undefined;

@@ -14,8 +14,20 @@ export class WatchProvider implements vscode.WebviewViewProvider {
 	public static readonly viewType = 'tableView.variablesView';
 	private _view?: vscode.WebviewView;
 	private expressions: string[] = [];
+	private context: vscode.ExtensionContext;
 
-	constructor() {
+	constructor(context: vscode.ExtensionContext) {
+		this.context = context;
+		
+		const saveScope = vscode.workspace.getConfiguration('tableView').get<string>('saveVariablesScope', 'workspace');
+		const savedExpressions = saveScope === 'global' 
+			? context.globalState.get<string[]>('tableView.savedWatchVariables') 
+			: context.workspaceState.get<string[]>('tableView.savedWatchVariables');
+		
+		if (savedExpressions && Array.isArray(savedExpressions)) {
+			this.expressions = [...savedExpressions];
+		}
+
 		vscode.debug.onDidChangeActiveDebugSession(() => {
 			this.refresh();
 		});
@@ -90,6 +102,22 @@ export class WatchProvider implements vscode.WebviewViewProvider {
 	public clearVariables() {
 		this.expressions = [];
 		this.refresh();
+	}
+
+	public async saveVariables() {
+		const saveScope = vscode.workspace.getConfiguration('tableView').get<string>('saveVariablesScope', 'workspace');
+		const expressionsToSave = [...this.expressions];
+		
+		if (saveScope === 'global') {
+			await this.context.globalState.update('tableView.savedWatchVariables', expressionsToSave);
+			// Also clear from workspace to avoid ambiguity later
+			await this.context.workspaceState.update('tableView.savedWatchVariables', undefined);
+		} else {
+			await this.context.workspaceState.update('tableView.savedWatchVariables', expressionsToSave);
+			// Also clear from global to avoid ambiguity later
+			await this.context.globalState.update('tableView.savedWatchVariables', undefined);
+		}
+		vscode.window.showInformationMessage(`Watch variables saved to ${saveScope} state.`);
 	}
 
 	public async refresh() {
