@@ -184,16 +184,9 @@ export class TableViewProvider {
 	private async deleteRows(indices: string[]) {
 		if (!this._currentSession || !this._currentRootEvalName || indices.length === 0) { return; }
 		try {
-			const config = vscode.workspace.getConfiguration('tableView');
-			const startIndexAt1 = config.get<boolean>('startIndexAt1', false);
-			const startIndexOffset = startIndexAt1 ? 1 : 0;
-			const realIndices = indices.map(idx => {
-				const num = Number(idx);
-				if (startIndexOffset !== 0 && !isNaN(num)) {
-					return String(num - startIndexOffset);
-				}
-				return idx;
-			});
+			// Since we are showing direct debugger indexes (1-based for ABAP), we keep values as-is for expressions.
+			const realIndices = indices.map(idx => idx);
+
 			const indicesStr = JSON.stringify(realIndices);
 			const expr = `
 				(function() {

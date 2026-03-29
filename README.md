@@ -26,8 +26,3 @@ The extension introduces a custom **Variables** view in the Debug panel:
 - VS Code version 1.107.0 or higher.
 - An active debug session is required to evaluate variables and launch the table view.
 
-## Extension Settings
-
-This extension contributes the following configuration settings:
-
-* `tableView.startIndexAt1`: Set to `true` to start array indexes counting at 1 instead of 0 (useful for ABAP or Lua debugging). Default is `false`.

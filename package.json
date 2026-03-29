@@ -95,11 +95,6 @@
     "configuration": {
       "title": "Table View",
       "properties": {
-        "tableView.startIndexAt1": {
-          "type": "boolean",
-          "default": false,
-          "description": "Start array indexes counting at 1 instead of 0 (e.g. for ABAP debugging)"
-        }
       }
     }
   },

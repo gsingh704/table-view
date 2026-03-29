@@ -1,15 +1,30 @@
 import * as vscode from 'vscode';
 import { fetchVariables, isSystemMetadata, isFunction, stripQuotes } from './debugAdapter';
 
+export function parseRowIndex(rawIndex: string): number | null {
+	if (/^-?\d+$/.test(rawIndex)) {
+		return Number(rawIndex);
+	}
+
+	// Supports table/array indexes in any language, e.g. `foo[1]`, `bar[12]`, `obj.list[5].value`.
+	const bracketMatch = rawIndex.match(/\[(-?\d+)\]/g);
+	if (bracketMatch && bracketMatch.length > 0) {
+		// Prefer the last encountered index in nested container expressions.
+		const lastIndexLiteral = bracketMatch[bracketMatch.length - 1];
+		const indexValue = Number(lastIndexLiteral.replace(/[\[\]]/g, ''));
+		if (!isNaN(indexValue)) {
+			return indexValue;
+		}
+	}
+
+	return null;
+}
+
 export async function extractTableData(session: vscode.DebugSession, ref: number): Promise<{ tableData: any[], allColumns: Set<string> }> {
 	const rows = await fetchVariables(session, ref);
 	const tableData: any[] = [];
 	const allColumns = new Set<string>();
 	allColumns.add('(index)');
-
-	const config = vscode.workspace.getConfiguration('tableView');
-	const startIndexAt1 = config.get<boolean>('startIndexAt1', false);
-	const startIndexOffset = startIndexAt1 ? 1 : 0;
 
 	const MAX_ROWS = 2000;
 	let processedRows = rows;
@@ -24,8 +39,12 @@ export async function extractTableData(session: vscode.DebugSession, ref: number
 			if (isSystemMetadata(row.name) || isFunction(row)) { return null; }
 
 			let displayIndex = row.name;
-			if (startIndexOffset !== 0 && !isNaN(Number(row.name))) {
-				displayIndex = (Number(row.name) + startIndexOffset).toString();
+			const parsedIndex = parseRowIndex(row.name);
+			if (parsedIndex !== null) {
+				displayIndex = parsedIndex.toString();
+			} else if (!isNaN(Number(row.name))) {
+				// Fallback for pure numeric row names.
+				displayIndex = Number(row.name).toString();
 			}
 
 			if (row.variablesReference > 0) {

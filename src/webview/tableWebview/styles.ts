@@ -172,6 +172,7 @@ export const tableStyles = `
                 border-collapse: collapse;
                 border-spacing: 0;
                 text-align: left;
+                table-layout: auto;
             }
             th, td {
                 padding: 6px 8px;
@@ -179,26 +180,26 @@ export const tableStyles = `
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
-                max-width: 300px;
+                max-width: none;
+                min-width: 40px;
                 font-size: 0.9em;
             }
             th:first-child, td:first-child {
-                width: 20px;
-                min-width: 20px;
-                max-width: 24px;
+                width: auto;
+                min-width: 0;
                 text-align: center;
                 padding: 6px 0;
             }
-            /* index column smallest possible width */
+            /* index column auto width to fit content */
             th:nth-child(2), td:nth-child(2) {
-                width: 1px;
-                min-width: 1px;
-                max-width: 32px;
+                width: auto;
+                min-width: 0;
+                max-width: none;
                 text-align: right;
-                padding: 0 2px;
+                padding: 0 6px;
                 white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
+                overflow: visible;
+                text-overflow: clip;
             }
             tr:not(:last-child) td {
                 /* removed bottom border override to allow full grid */
