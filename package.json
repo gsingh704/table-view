@@ -2,7 +2,7 @@
   "name": "table-view",
   "displayName": "Table View",
   "description": "View 2D arrays in Table format",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "publisher": "gsingh704",
   "license": "MIT",
   "engines": {
@@ -113,7 +113,10 @@
         },
         "tableView.saveVariablesScope": {
           "type": "string",
-          "enum": ["workspace", "global"],
+          "enum": [
+            "workspace",
+            "global"
+          ],
           "default": "workspace",
           "description": "Scope to save watch variables in. 'workspace' will save variables per workspace, 'global' will save them globally."
         }
