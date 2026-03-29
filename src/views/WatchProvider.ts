@@ -31,6 +31,17 @@ export class WatchProvider implements vscode.WebviewViewProvider {
 		vscode.debug.onDidChangeBreakpoints(() => {
 			this.refresh();
 		});
+		vscode.debug.registerDebugAdapterTrackerFactory('*', {
+			createDebugAdapterTracker: (session) => {
+				return {
+					onDidSendMessage: m => {
+						if (m.type === 'event' && m.event === 'stopped') {
+							this.refresh();
+						}
+					}
+				};
+			}
+		});
 	}
 
 	resolveWebviewView(webviewView: vscode.WebviewView) {

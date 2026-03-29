@@ -139,6 +139,17 @@ export class TableViewProvider {
 		}
 	}
 
+	public appendData(data: any[], columns: string[]) {
+		if (this._panel) {
+			this._panel.webview.postMessage({ type: 'append', data, columns });
+		} else if (this._pendingData) {
+			this._pendingData.data.push(...data);
+			// Merge unique columns
+			const newCols = new Set([...this._pendingData.columns, ...columns]);
+			this._pendingData.columns = Array.from(newCols);
+		}
+	}
+
 	private async updateVariable(ref: number, name: string, value: string, evalName?: string) {
 		if (this._currentSession && ref) {
 			try {
@@ -274,8 +285,18 @@ export class TableViewProvider {
 				return;
 			}
 
-			const { tableData, allColumns } = await extractTableData(this._currentSession!, currentRef);
-			if (this._panel) {
+			let firstBatchSent = false;
+			const { tableData, allColumns } = await extractTableData(this._currentSession!, currentRef, (chunk, columns, isFirst) => {
+				if (this._panel) {
+					if (isFirst) {
+						this._panel.webview.postMessage({ type: 'update', data: chunk, columns: columns, variableName: this._currentName, variableRef: currentRef, isEditorPanel: true });
+						firstBatchSent = true;
+					} else {
+						this._panel.webview.postMessage({ type: 'append', data: chunk, columns: columns });
+					}
+				}
+			});
+			if (!firstBatchSent && this._panel) {
 				this._panel.webview.postMessage({ type: 'update', data: tableData, columns: Array.from(allColumns), variableName: this._currentName, variableRef: currentRef, isEditorPanel: true });
 			}
 		} catch (e) {

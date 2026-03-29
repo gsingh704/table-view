@@ -2,7 +2,7 @@
   "name": "table-view",
   "displayName": "Table View",
   "description": "View 2D arrays in Table format",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "publisher": "gsingh704",
   "license": "MIT",
   "engines": {
@@ -95,6 +95,11 @@
     "configuration": {
       "title": "Table View",
       "properties": {
+        "tableView.chunkSize": {
+          "type": "number",
+          "default": 100,
+          "description": "Number of rows to fetch per chunk when streaming table data."
+        }
       }
     }
   },

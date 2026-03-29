@@ -20,19 +20,21 @@ export function parseRowIndex(rawIndex: string): number | null {
 	return null;
 }
 
-export async function extractTableData(session: vscode.DebugSession, ref: number): Promise<{ tableData: any[], allColumns: Set<string> }> {
+export async function extractTableData(
+	session: vscode.DebugSession,
+	ref: number,
+	onProgress?: (dataChunk: any[], newColumns: string[], isFirstChunk: boolean, totalRows: number) => void
+): Promise<{ tableData: any[], allColumns: Set<string> }> {
 	const rows = await fetchVariables(session, ref);
 	const tableData: any[] = [];
 	const allColumns = new Set<string>();
 	allColumns.add('(index)');
 
-	const MAX_ROWS = 2000;
 	let processedRows = rows;
-	if (rows.length > MAX_ROWS) {
-		processedRows = rows.slice(0, MAX_ROWS);
-	}
 
-	const BATCH_SIZE = 50;
+	const BATCH_SIZE = vscode.workspace.getConfiguration('tableView').get<number>('chunkSize', 100);
+	let isFirstChunk = true;
+
 	for (let i = 0; i < processedRows.length; i += BATCH_SIZE) {
 		const batch = processedRows.slice(i, i + BATCH_SIZE);
 		const batchResults = await Promise.all(batch.map(async (row) => {
@@ -73,10 +75,18 @@ export async function extractTableData(session: vscode.DebugSession, ref: number
 			}
 		}));
 
+		const chunkData: any[] = [];
 		for (const res of batchResults) {
 			if (res) {
 				tableData.push(res);
+				chunkData.push(res);
 			}
+		}
+
+		if (onProgress && chunkData.length > 0) {
+			const newColumns = Array.from(allColumns);
+			onProgress(chunkData, newColumns, isFirstChunk, processedRows.length);
+			isFirstChunk = false;
 		}
 	}
 	return { tableData, allColumns };

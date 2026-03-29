@@ -169,6 +169,36 @@ export const tableScripts = `
                         updateFilteredSortedData();
                         renderTable();
                         break;
+                    case 'append':
+                        if (rawData) {
+                            rawData.push(...message.data);
+                        } else {
+                            rawData = message.data;
+                        }
+
+                        let colsChanged = false;
+                        const newCols = message.columns.filter(c => c !== '(index)');
+                        newCols.forEach(c => {
+                            if (!allColumns.includes(c)) {
+                                allColumns.push(c);
+                                if (!userHiddenColumns.has(c)) {
+                                    visibleColumns.push(c);
+                                }
+                                colsChanged = true;
+                            }
+                        });
+
+                        updateFilteredSortedData();
+
+                        if (colsChanged) {
+                            renderDropdown();
+                            if (!isChartView) renderTable();
+                        } else {
+                            if (!isChartView) renderBody();
+                        }
+                        
+                        if (isChartView) renderChart();
+                        break;
                 }
             });
 

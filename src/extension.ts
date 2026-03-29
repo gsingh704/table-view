@@ -22,8 +22,18 @@ async function evaluateAndShowTable(session: vscode.DebugSession, expression: st
 				title: `Extracting table data for ${expression}...`,
 				cancellable: false
 			}, async () => {
-				const { tableData, allColumns } = await extractTableData(session, response.variablesReference);
-				provider.update(tableData, Array.from(allColumns), expression, session, response.variablesReference, response.evaluateName || expression);
+				let firstBatchSent = false;
+				const { tableData, allColumns } = await extractTableData(session, response.variablesReference, (chunk, columns, isFirst) => {
+					if (isFirst) {
+						provider.update(chunk, columns, expression, session, response.variablesReference, response.evaluateName || expression);
+						firstBatchSent = true;
+					} else {
+						provider.appendData(chunk, columns);
+					}
+				});
+				if (!firstBatchSent) {
+					provider.update(tableData, Array.from(allColumns), expression, session, response.variablesReference, response.evaluateName || expression);
+				}
 			});
 		} else {
 			vscode.window.showErrorMessage(`Cannot view primitive value as table: ${expression}`);
@@ -190,8 +200,19 @@ export function activate(context: vscode.ExtensionContext) {
 				title: `Extracting table data for ${name}...`,
 				cancellable: false
 			}, async (progress) => {
-				const { tableData, allColumns } = await extractTableData(session, ref);
-				provider!.update(tableData, Array.from(allColumns), name, session, ref, rootEvalName);
+				let firstBatchSent = false;
+				const { tableData, allColumns } = await extractTableData(session, ref, (chunk, columns, isFirst) => {
+					if (isFirst) {
+						provider!.update(chunk, columns, name, session, ref, rootEvalName);
+						firstBatchSent = true;
+					} else {
+						provider!.appendData(chunk, columns);
+					}
+				});
+				
+				if (!firstBatchSent) {
+					provider!.update(tableData, Array.from(allColumns), name, session, ref, rootEvalName);
+				}
 			});
 		}
 	});
