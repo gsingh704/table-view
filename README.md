@@ -16,6 +16,11 @@ Click on View as Table icon to open a complex variable (Array or Object) in the 
 - **Instant Chart View**: Toggle the "View Chart" button to instantly visualize your numerical data in a bar chart without leaving the editor.
 - **Filter and Sort**: Filter and sort data by column.
 
+### Screenshot
+![alt text](img/{8699E10F-2511-4D3E-A784-EE1885923D42}.png)
+![alt text](img/{9899CBB8-44F8-41C4-83DD-6BBD0350812E}.png)
+
+
 ### 👀 Custom Variables Watch
 The extension introduces a custom **Variables** view in the Debug panel:
 - Quickly add variables by selecting text in your active editor.
